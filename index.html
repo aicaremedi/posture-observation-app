@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>姿勢観察支援アプリ</title>
+<style>
+:root {
+  --primary: #2563eb;
+  --primary-light: #dbeafe;
+  --accent: #059669;
+  --accent-light: #d1fae5;
+  --warning: #d97706;
+  --warning-light: #fef3c7;
+  --danger: #dc2626;
+  --left-color: #3b82f6;
+  --right-color: #ef4444;
+  --center-color: #10b981;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-600: #4b5563;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  background: #000;
+  color: #fff;
+  touch-action: manipulation;
+}
+
+/* ===== Screen management ===== */
+.screen { display: none; height: 100vh; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ===== HOME SCREEN ===== */
+#homeScreen {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%);
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+.home-logo {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.home-sub {
+  font-size: 0.95rem;
+  opacity: 0.7;
+  margin-bottom: 48px;
+  text-align: center;
+}
+.home-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 360px;
+}
+.home-btn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.home-btn:active { transform: scale(0.97); }
+.home-btn .icon { font-size: 1.8rem; }
+.home-btn.primary-btn { background: var(--primary); color: #fff; }
+.home-btn.secondary-btn { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+
+/* ===== TEMPLATE SELECT SCREEN ===== */
+#templateScreen {
+  background: var(--gray-50);
+  color: var(--gray-800);
+}
+.screen-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+  min-height: 56px;
+}
+.back-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  color: var(--gray-800);
+}
+.screen-title { font-size: 1.1rem; font-weight: 700; }
+
+.tab-bar {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+}
+.tab-btn {
+  flex: 1;
+  padding: 12px 8px;
+  border: none;
+  background: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.template-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.template-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+.template-card:active { transform: scale(0.98); }
+.template-card .t-code {
+  display: inline-block;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.template-card .t-code.cat-b { background: var(--accent-light); color: var(--accent); }
+.template-card .t-code.cat-c { background: var(--warning-light); color: var(--warning); }
+.template-card .t-name { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.template-card .t-desc { font-size: 0.82rem; color: var(--gray-600); }
+.template-card .t-accuracy {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+.acc-high { background: #d1fae5; color: #065f46; }
+.acc-mid { background: #fef3c7; color: #92400e; }
+.acc-low { background: #fee2e2; color: #991b1b; }
+
+/* ===== CAPTURE SCREEN ===== */
+#captureScreen { background: #000; position: relative; }
+.capture-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+}
+.capture-header .back-btn { color: #fff; }
+.capture-header .screen-title { color: #fff; font-size: 0.95rem; }
+.capture-status {
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.15);
+}
+.capture-status.recording { background: var(--danger); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+.video-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#cameraVideo {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#overlayCanvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.guide-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #fff;
+  font-size: 1rem;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.guide-overlay.visible { opacity: 1; }
+
+/* Overlay controls */
+.overlay-controls {
+  position: absolute;
+  top: 64px;
+  right: 8px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ov-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.ov-btn.active { background: var(--primary); }
+
+/* Bottom toolbar */
+.capture-toolbar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 16px 24px 32px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+}
+.tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+.tool-btn .btn-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s, transform 0.15s;
+}
+.tool-btn:active .btn-icon { transform: scale(0.9); }
+.tool-btn.capture-main .btn-icon {
+  width: 68px;
+  height: 68px;
+  background: #fff;
+  color: #000;
+  font-size: 1.8rem;
+}
+.tool-btn.recording .btn-icon {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Timer overlay for tests */
+.timer-overlay {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  text-align: center;
+  display: none;
+}
+.timer-overlay.visible { display: block; }
+.timer-display {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.8);
+  font-variant-numeric: tabular-nums;
+}
+.timer-count {
+  font-size: 1.4rem;
+  color: #fbbf24;
+  font-weight: 700;
+  margin-top: 4px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+.timer-controls {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.timer-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.timer-start { background: var(--accent); color: #fff; }
+.timer-stop { background: var(--danger); color: #fff; }
+.timer-reset { background: rgba(255,255,255,0.2); color: #fff; }
+
+/* ===== RESULT SCREEN ===== */
+#resultScreen {
+  background: var(--gray-50);
+  color: var(--gray-800);
+}
+.result-preview {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+}
+.result-preview img, .result-preview video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.result-actions {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border-top: 1px solid var(--gray-200);
+}
+.result-btn {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.result-btn:active { transform: scale(0.97); }
+.result-btn.save { background: var(--primary); color: #fff; }
+.result-btn.retake { background: var(--gray-100); color: var(--gray-800); }
+
+/* ===== RESPONSIVE ===== */
+@media (min-width: 768px) {
+  .home-buttons { max-width: 400px; }
+  .template-list { max-width: 600px; margin: 0 auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== HOME SCREEN ===== -->
+<div id="homeScreen" class="screen active">
+  <div class="home-logo">姿勢観察支援</div>
+  <div class="home-sub">棒人間表示による姿勢観察支援ツール</div>
+  <div class="home-buttons">
+    <button class="home-btn primary-btn" onclick="showScreen('templateScreen')">
+      <span class="icon">📷</span>
+      <span>撮影を始める</span>
+    </button>
+    <button class="home-btn secondary-btn" id="loadVideoBtn">
+      <span class="icon">📂</span>
+      <span>動画を読み込む</span>
+    </button>
+  </div>
+  <input type="file" id="videoFileInput" accept="video/*" style="display:none">
+</div>
+
+<!-- ===== TEMPLATE SELECT SCREEN ===== -->
+<div id="templateScreen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('homeScreen')">←</button>
+    <div class="screen-title">テンプレート選択</div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="posture" onclick="switchTab(this)">姿勢観察</button>
+    <button class="tab-btn" data-tab="motion" onclick="switchTab(this)">動作観察</button>
+    <button class="tab-btn" data-tab="test" onclick="switchTab(this)">簡易検査</button>
+  </div>
+  <div class="template-list" id="templateList"></div>
+</div>
+
+<!-- ===== CAPTURE SCREEN ===== -->
+<div id="captureScreen" class="screen">
+  <div class="capture-header">
+    <button class="back-btn" onclick="stopCapture()">←</button>
+    <div class="screen-title" id="captureTitle">撮影</div>
+    <div class="capture-status" id="captureStatus">準備中...</div>
+  </div>
+
+  <div class="video-container">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <canvas id="overlayCanvas"></canvas>
+    <div class="guide-overlay" id="guideOverlay"></div>
+  </div>
+
+  <div class="overlay-controls">
+    <button class="ov-btn active" id="toggleSkeleton" onclick="toggleSkeletonDisplay()" title="骨格表示">🦴</button>
+    <button class="ov-btn" id="toggleAngles" onclick="toggleAngles()" title="角度表示">📐</button>
+    <button class="ov-btn" id="toggleSkeletonOnly" onclick="toggleSkeletonOnly()" title="棒人間のみ">👤</button>
+    <button class="ov-btn" id="switchCameraBtn" onclick="switchCamera()" title="カメラ切替">🔄</button>
+  </div>
+
+  <!-- Timer for tests -->
+  <div class="timer-overlay" id="timerOverlay">
+    <div class="timer-display" id="timerDisplay">00:00.0</div>
+    <div class="timer-count" id="timerCount"></div>
+    <div class="timer-controls">
+      <button class="timer-btn timer-start" id="timerStartBtn" onclick="toggleTimer()">開始</button>
+      <button class="timer-btn timer-reset" onclick="resetTimer()">リセット</button>
+    </div>
+  </div>
+
+  <div class="capture-toolbar">
+    <button class="tool-btn" onclick="takeScreenshot()">
+      <span class="btn-icon">📷</span>
+      <span>スクショ</span>
+    </button>
+    <button class="tool-btn capture-main" id="recordBtn" onclick="toggleRecording()">
+      <span class="btn-icon">⏺</span>
+      <span>録画</span>
+    </button>
+    <button class="tool-btn" onclick="showScreen('templateScreen')">
+      <span class="btn-icon">📋</span>
+      <span>テンプレ</span>
+    </button>
+  </div>
+</div>
+
+<!-- ===== RESULT SCREEN ===== -->
+<div id="resultScreen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('captureScreen')">←</button>
+    <div class="screen-title">結果確認</div>
+  </div>
+  <div class="result-preview" id="resultPreview"></div>
+  <div class="result-actions">
+    <button class="result-btn retake" onclick="showScreen('captureScreen')">再撮影</button>
+    <button class="result-btn save" onclick="saveResult()">保存</button>
+  </div>
+</div>
+
+<!-- MediaPipe Pose -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+<script>
+// ===== GLOBAL STATE =====
+const state = {
+  currentScreen: 'homeScreen',
+  currentTab: 'posture',
+  currentTemplate: null,
+  showSkeleton: true,
+  showAngles: false,
+  skeletonOnly: false,
+  isRecording: false,
+  facingMode: 'environment', // back camera default
+  cameraStream: null,
+  pose: null,
+  latestLandmarks: null,
+  mediaRecorder: null,
+  recordedChunks: [],
+  lastResultBlob: null,
+  lastResultType: null, // 'image' or 'video'
+  // Timer state
+  timerRunning: false,
+  timerStart: 0,
+  timerElapsed: 0,
+  timerInterval: null,
+  timerMode: null, // 'stopwatch' | 'countdown'
+  timerDuration: 0,
+  // Auto count state (5STS/CS-30)
+  autoCount: 0,
+  lastStandingState: null, // 'standing' | 'sitting'
+  hipYHistory: [],
+  countThreshold: 0,
+  videoSource: null, // null = camera, File = loaded video
+};
+
+// ===== TEMPLATE DATA =====
+const templates = {
+  posture: [
+    { code: 'A-6', name: '立位', desc: '正面・側面・背面から撮影。MediaPipe精度が最も高い基本テンプレート。', accuracy: 'high', guide: '全身が映るよう2〜3m離れて撮影してください' },
+    { code: 'A-1', name: '座位（椅子）', desc: '椅子に座った状態。背もたれから離れた状態で撮影推奨。', accuracy: 'high', guide: '背もたれから離れた状態で撮影してください' },
+    { code: 'A-2', name: '座位（車椅子）', desc: '車椅子座位。フレームの干渉に注意。正面からの撮影が最安定。', accuracy: 'mid', guide: '正面からの撮影が最も安定します' },
+    { code: 'A-7', name: '片脚立位', desc: '片脚で立った状態。左右それぞれ記録。転倒に注意。', accuracy: 'high', guide: '安全な環境で実施してください。近くに手すりを。' },
+    { code: 'A-3', name: '仰臥位', desc: '仰向けの状態。斜め上45度からの撮影推奨。', accuracy: 'mid', guide: 'カメラを斜め上45度から撮影してください' },
+    { code: 'A-4', name: '側臥位（左右）', desc: '横向きの状態。背面側からの撮影推奨。左右両方記録。', accuracy: 'mid', guide: '背面側から撮影すると情報量が多くなります' },
+    { code: 'A-5', name: '伏臥位', desc: 'うつ伏せ。MediaPipe検出が不安定。写真記録モード推奨。', accuracy: 'low', guide: '顔を横に向けてもらうと検出が改善します' },
+  ],
+  motion: [
+    { code: 'B-3', name: '立ち上がり', desc: '椅子から立位へ。側面からの撮影推奨。', accuracy: 'high', guide: '側面から全体が映るよう撮影してください', record: true },
+    { code: 'B-4', name: '歩行', desc: '通常速度での歩行。側面・正面から撮影。', accuracy: 'high', guide: '側面から撮影。5〜10m程度の歩行を録画。', record: true },
+    { code: 'B-2', name: '起き上がり', desc: '仰臥位から座位へ。側面からの撮影推奨。', accuracy: 'mid', guide: '側面から動作全体を録画してください', record: true },
+    { code: 'B-1', name: '寝返り', desc: '仰臥位から側臥位へ。頭側からの撮影推奨。', accuracy: 'mid', guide: '頭側から全体の動きを録画してください', record: true },
+    { code: 'B-5', name: 'その他の動作', desc: '階段昇降、リーチ動作、着座など自由記録。', accuracy: 'mid', guide: '動作全体が映るよう撮影してください', record: true },
+  ],
+  test: [
+    { code: 'C-1', name: '5回立ち上がりテスト（5STS）', desc: '椅子から5回連続立ち座り。12秒以上で転倒リスク高。', accuracy: 'high', timer: 'stopwatch', autoCount: true, targetCount: 5, guide: '側面から撮影。開始ボタンで計測開始。' },
+    { code: 'C-2', name: 'CS-30', desc: '30秒間に何回立ち座りできるか。自動カウント対応。', accuracy: 'high', timer: 'countdown', timerDuration: 30, autoCount: true, guide: '側面から撮影。30秒カウントダウンで計測。' },
+    { code: 'C-3', name: '開眼片脚立位テスト', desc: '片脚で最大60秒。15秒未満で転倒リスク高。', accuracy: 'high', timer: 'stopwatch', guide: '正面から撮影。計測開始後、片脚を上げてください。' },
+    { code: 'C-4', name: 'TUG', desc: '立ち上がり→3m歩行→ターン→着席。13.5秒以上で転倒リスク高。', accuracy: 'mid', timer: 'stopwatch', guide: '側面から撮影。椅子から立ち上がったら計測開始。' },
+    { code: 'C-5', name: '10m歩行テスト', desc: '10m歩行の所要時間。1.0m/秒未満で要注意。', accuracy: 'mid', timer: 'stopwatch', guide: 'タイマーで歩行時間を計測します。' },
+    { code: 'C-6', name: 'ファンクショナルリーチテスト', desc: '前方リーチ距離。15cm未満で転倒リスク高。', accuracy: 'mid', timer: 'none', guide: '側面から撮影。手首の移動を観察します。' },
+    { code: 'C-7', name: 'SPPB', desc: 'バランス+歩行+立ち上がりの総合テスト（12点満点）。', accuracy: 'mid', timer: 'stopwatch', guide: '各サブテストを順番に実施します。' },
+    { code: 'C-8', name: '体重測定（手入力）', desc: '体重を手入力で記録。BMI自動算出。', accuracy: 'none', timer: 'none', manualInput: true, guide: '' },
+  ]
+};
+
+// ===== SKELETON CONNECTIONS =====
+// Left side (blue), Right side (red), Center (green)
+const POSE_CONNECTIONS = [
+  // Center
+  { from: 11, to: 12, side: 'center' }, // shoulder line
+  { from: 23, to: 24, side: 'center' }, // hip line
+  // Left side (blue)
+  { from: 11, to: 13, side: 'left' },  // L shoulder -> L elbow
+  { from: 13, to: 15, side: 'left' },  // L elbow -> L wrist
+  { from: 11, to: 23, side: 'left' },  // L shoulder -> L hip
+  { from: 23, to: 25, side: 'left' },  // L hip -> L knee
+  { from: 25, to: 27, side: 'left' },  // L knee -> L ankle
+  // Right side (red)
+  { from: 12, to: 14, side: 'right' }, // R shoulder -> R elbow
+  { from: 14, to: 16, side: 'right' }, // R elbow -> R wrist
+  { from: 12, to: 24, side: 'right' }, // R shoulder -> R hip
+  { from: 24, to: 26, side: 'right' }, // R hip -> R knee
+  { from: 26, to: 28, side: 'right' }, // R knee -> R ankle
+  // Face (simplified)
+  { from: 0, to: 11, side: 'center' }, // nose -> L shoulder (approx neck)
+  { from: 0, to: 12, side: 'center' }, // nose -> R shoulder
+];
+
+const SIDE_COLORS = {
+  left: 'rgba(59, 130, 246, {a})',   // blue
+  right: 'rgba(239, 68, 68, {a})',   // red
+  center: 'rgba(16, 185, 129, {a})', // green
+};
+
+// ===== SCREEN NAVIGATION =====
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  state.currentScreen = screenId;
+
+  if (screenId === 'templateScreen') {
+    renderTemplates();
+  }
+}
+
+// ===== TEMPLATE RENDERING =====
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.currentTab = btn.dataset.tab;
+  renderTemplates();
+}
+
+function renderTemplates() {
+  const list = document.getElementById('templateList');
+  const items = templates[state.currentTab] || [];
+  const catClass = state.currentTab === 'motion' ? 'cat-b' : state.currentTab === 'test' ? 'cat-c' : '';
+
+  list.innerHTML = items.map(t => `
+    <div class="template-card" onclick="selectTemplate('${state.currentTab}', '${t.code}')">
+      <span class="t-code ${catClass}">${t.code}</span>
+      <div class="t-name">${t.name}</div>
+      <div class="t-desc">${t.desc}</div>
+      ${t.accuracy !== 'none' ? `<span class="t-accuracy acc-${t.accuracy}">${t.accuracy === 'high' ? '精度: 高' : t.accuracy === 'mid' ? '精度: 中' : '精度: 低'}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+function selectTemplate(category, code) {
+  const items = templates[category];
+  const tmpl = items.find(t => t.code === code);
+  if (!tmpl) return;
+  state.currentTemplate = tmpl;
+
+  // Handle manual input templates (C-8 weight)
+  if (tmpl.manualInput) {
+    showManualInputDialog(tmpl);
+    return;
+  }
+
+  startCapture(tmpl);
+}
+
+// ===== MANUAL INPUT (C-8 etc) =====
+function showManualInputDialog(tmpl) {
+  const weight = prompt('体重を入力してください（kg）:');
+  if (weight !== null && weight !== '') {
+    const w = parseFloat(weight);
+    if (!isNaN(w)) {
+      const height = prompt('身長を入力してください（cm、初回のみ）:');
+      let bmi = '';
+      if (height) {
+        const h = parseFloat(height) / 100;
+        if (h > 0) bmi = (w / (h * h)).toFixed(1);
+      }
+      const msg = `体重: ${w}kg` + (bmi ? ` / BMI: ${bmi}` : '');
+      alert(`記録しました: ${msg}\n※Phase 2でGoogle Driveに自動保存されます`);
+    }
+  }
+}
+
+// ===== CAMERA & MEDIAPIPE =====
+async function startCapture(tmpl) {
+  showScreen('captureScreen');
+  document.getElementById('captureTitle').textContent = tmpl ? `${tmpl.code} ${tmpl.name}` : '撮影';
+  document.getElementById('captureStatus').textContent = '起動中...';
+  document.getElementById('captureStatus').classList.remove('recording');
+
+  // Show guide
+  const guide = document.getElementById('guideOverlay');
+  if (tmpl && tmpl.guide) {
+    const guideText = tmpl.guide;
+    guide.textContent = guideText;
+    guide.classList.add('visible');
+    setTimeout(() => {
+      // Don't hide if the text was replaced by an error message
+      if (guide.textContent === guideText) guide.classList.remove('visible');
+    }, 4000);
+  }
+
+  // Setup timer
+  const timerOverlay = document.getElementById('timerOverlay');
+  if (tmpl && tmpl.timer && tmpl.timer !== 'none') {
+    timerOverlay.classList.add('visible');
+    state.timerMode = tmpl.timer;
+    state.timerDuration = tmpl.timerDuration || 0;
+    state.autoCount = 0;
+    state.lastStandingState = null;
+    state.hipYHistory = [];
+    resetTimer();
+    if (tmpl.autoCount) {
+      document.getElementById('timerCount').textContent = '回数: 0';
+    } else {
+      document.getElementById('timerCount').textContent = '';
+    }
+  } else {
+    timerOverlay.classList.remove('visible');
+    state.timerMode = null;
+  }
+
+  await initCamera();
+  await initPose();
+}
+
+async function initCamera() {
+  // Stop existing stream
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach(t => t.stop());
+  }
+
+  const video = document.getElementById('cameraVideo');
+  try {
+    const constraints = {
+      video: {
+        facingMode: state.facingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    state.cameraStream = stream;
+    video.srcObject = stream;
+    await video.play();
+
+    // Set canvas size
+    const canvas = document.getElementById('overlayCanvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+
+    document.getElementById('captureStatus').textContent = '検出中...';
+  } catch (err) {
+    console.error('Camera error:', err);
+    document.getElementById('captureStatus').textContent = 'カメラエラー';
+    const guide = document.getElementById('guideOverlay');
+    guide.textContent = 'カメラにアクセスできませんでした。ブラウザの設定でカメラの許可を確認してください。';
+    guide.classList.add('visible');
+  }
+}
+
+async function initPose() {
+  if (state.pose) {
+    // Already initialized, just start sending frames
+    requestAnimationFrame(processFrame);
+    return;
+  }
+
+  const pose = new Pose({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+  });
+
+  pose.setOptions({
+    modelComplexity: 1, // 0=lite, 1=full, 2=heavy
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+
+  pose.onResults(onPoseResults);
+  state.pose = pose;
+
+  requestAnimationFrame(processFrame);
+}
+
+async function processFrame() {
+  if (state.currentScreen !== 'captureScreen') return;
+
+  const video = document.getElementById('cameraVideo');
+  if (video.readyState >= 2 && state.pose) {
+    try {
+      await state.pose.send({ image: video });
+    } catch (e) {
+      // Ignore frame errors
+    }
+  }
+  requestAnimationFrame(processFrame);
+}
+
+function onPoseResults(results) {
+  const canvas = document.getElementById('overlayCanvas');
+  const ctx = canvas.getContext('2d');
+  const video = document.getElementById('cameraVideo');
+
+  // Match canvas to video dimensions
+  if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+  }
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw camera image on canvas (for skeleton-only mode or recording)
+  if (state.skeletonOnly) {
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  if (results.poseLandmarks) {
+    state.latestLandmarks = results.poseLandmarks;
+    document.getElementById('captureStatus').textContent = '検出中 ✓';
+
+    if (state.showSkeleton) {
+      drawSkeleton(ctx, results.poseLandmarks, canvas.width, canvas.height);
+    }
+    if (state.showAngles) {
+      drawAngles(ctx, results.poseLandmarks, canvas.width, canvas.height);
+    }
+
+    // Auto counting for tests
+    if (state.timerRunning && state.currentTemplate && state.currentTemplate.autoCount) {
+      processAutoCount(results.poseLandmarks);
+    }
+  } else {
+    document.getElementById('captureStatus').textContent = '人物を映してください';
+    state.latestLandmarks = null;
+  }
+}
+
+function drawSkeleton(ctx, landmarks, w, h) {
+  // Draw connections
+  POSE_CONNECTIONS.forEach(conn => {
+    const from = landmarks[conn.from];
+    const to = landmarks[conn.to];
+    if (!from || !to) return;
+
+    const avgVis = (from.visibility + to.visibility) / 2;
+    if (avgVis < 0.4) return; // Too low confidence
+
+    const alpha = avgVis >= 0.7 ? 1.0 : 0.4;
+    const lineWidth = avgVis >= 0.7 ? 4 : 2;
+    const color = SIDE_COLORS[conn.side].replace('{a}', alpha);
+
+    ctx.beginPath();
+    ctx.moveTo(from.x * w, from.y * h);
+    ctx.lineTo(to.x * w, to.y * h);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  });
+
+  // Draw joint points
+  const keyJoints = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+  keyJoints.forEach(idx => {
+    const lm = landmarks[idx];
+    if (!lm || lm.visibility < 0.4) return;
+
+    const alpha = lm.visibility >= 0.7 ? 1.0 : 0.5;
+    const radius = lm.visibility >= 0.7 ? 6 : 4;
+    const side = [11, 13, 15, 23, 25, 27].includes(idx) ? 'left' :
+                 [12, 14, 16, 24, 26, 28].includes(idx) ? 'right' : 'center';
+    const color = SIDE_COLORS[side].replace('{a}', alpha);
+
+    ctx.beginPath();
+    ctx.arc(lm.x * w, lm.y * h, radius, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.8})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function drawAngles(ctx, landmarks, w, h) {
+  // Shoulder tilt
+  const ls = landmarks[11];
+  const rs = landmarks[12];
+  if (ls && rs && ls.visibility > 0.6 && rs.visibility > 0.6) {
+    const angleDeg = Math.atan2((rs.y - ls.y) * h, (rs.x - ls.x) * w) * (180 / Math.PI);
+    const midX = ((ls.x + rs.x) / 2) * w;
+    const midY = ((ls.y + rs.y) / 2) * h;
+    drawAngleLabel(ctx, midX, midY - 20, `肩: ${angleDeg.toFixed(1)}°`);
+  }
+
+  // Hip tilt
+  const lh = landmarks[23];
+  const rh = landmarks[24];
+  if (lh && rh && lh.visibility > 0.6 && rh.visibility > 0.6) {
+    const angleDeg = Math.atan2((rh.y - lh.y) * h, (rh.x - lh.x) * w) * (180 / Math.PI);
+    const midX = ((lh.x + rh.x) / 2) * w;
+    const midY = ((lh.y + rh.y) / 2) * h;
+    drawAngleLabel(ctx, midX, midY - 20, `骨盤: ${angleDeg.toFixed(1)}°`);
+  }
+
+  // Trunk lateral tilt (shoulder midpoint to hip midpoint)
+  if (ls && rs && lh && rh &&
+      ls.visibility > 0.6 && rs.visibility > 0.6 &&
+      lh.visibility > 0.6 && rh.visibility > 0.6) {
+    const sMidX = (ls.x + rs.x) / 2;
+    const sMidY = (ls.y + rs.y) / 2;
+    const hMidX = (lh.x + rh.x) / 2;
+    const hMidY = (lh.y + rh.y) / 2;
+    const trunkAngle = Math.atan2((sMidX - hMidX) * w, (hMidY - sMidY) * h) * (180 / Math.PI);
+    const labelX = ((sMidX + hMidX) / 2) * w + 40;
+    const labelY = ((sMidY + hMidY) / 2) * h;
+    drawAngleLabel(ctx, labelX, labelY, `体幹: ${trunkAngle.toFixed(1)}°`);
+  }
+}
+
+function drawAngleLabel(ctx, x, y, text) {
+  ctx.font = 'bold 14px sans-serif';
+  const metrics = ctx.measureText(text);
+  const pad = 6;
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(x - pad, y - 14 - pad, metrics.width + pad * 2, 20 + pad);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillText(text, x, y);
+}
+
+// ===== AUTO COUNTING (5STS / CS-30) =====
+function processAutoCount(landmarks) {
+  const lHip = landmarks[23];
+  const rHip = landmarks[24];
+  if (!lHip || !rHip || lHip.visibility < 0.5 || rHip.visibility < 0.5) return;
+
+  const hipY = (lHip.y + rHip.y) / 2;
+  state.hipYHistory.push(hipY);
+
+  // Keep last 30 frames
+  if (state.hipYHistory.length > 30) state.hipYHistory.shift();
+  if (state.hipYHistory.length < 10) return;
+
+  // Calculate threshold from min/max
+  const minY = Math.min(...state.hipYHistory);
+  const maxY = Math.max(...state.hipYHistory);
+  const range = maxY - minY;
+  if (range < 0.03) return; // Not enough movement
+
+  const threshold = (minY + maxY) / 2;
+  const currentState = hipY < threshold ? 'standing' : 'sitting';
+
+  if (state.lastStandingState === 'sitting' && currentState === 'standing') {
+    state.autoCount++;
+    document.getElementById('timerCount').textContent = `回数: ${state.autoCount}`;
+
+    // For 5STS, auto-stop at 5
+    if (state.currentTemplate && state.currentTemplate.targetCount &&
+        state.autoCount >= state.currentTemplate.targetCount) {
+      stopTimer();
+    }
+  }
+  state.lastStandingState = currentState;
+}
+
+// ===== TOGGLE CONTROLS =====
+function toggleSkeletonDisplay() {
+  state.showSkeleton = !state.showSkeleton;
+  document.getElementById('toggleSkeleton').classList.toggle('active', state.showSkeleton);
+}
+
+function toggleAngles() {
+  state.showAngles = !state.showAngles;
+  document.getElementById('toggleAngles').classList.toggle('active', state.showAngles);
+}
+
+function toggleSkeletonOnly() {
+  state.skeletonOnly = !state.skeletonOnly;
+  document.getElementById('toggleSkeletonOnly').classList.toggle('active', state.skeletonOnly);
+  const video = document.getElementById('cameraVideo');
+  video.style.opacity = state.skeletonOnly ? '0' : '1';
+}
+
+async function switchCamera() {
+  state.facingMode = state.facingMode === 'environment' ? 'user' : 'environment';
+  await initCamera();
+}
+
+// ===== TIMER =====
+function toggleTimer() {
+  if (state.timerRunning) {
+    stopTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  state.timerRunning = true;
+  state.timerStart = performance.now() - state.timerElapsed;
+  state.autoCount = 0;
+  state.lastStandingState = null;
+  state.hipYHistory = [];
+
+  if (state.currentTemplate && state.currentTemplate.autoCount) {
+    document.getElementById('timerCount').textContent = '回数: 0';
+  }
+
+  document.getElementById('timerStartBtn').textContent = '停止';
+  document.getElementById('timerStartBtn').classList.remove('timer-start');
+  document.getElementById('timerStartBtn').classList.add('timer-stop');
+
+  state.timerInterval = setInterval(() => {
+    state.timerElapsed = performance.now() - state.timerStart;
+    updateTimerDisplay();
+
+    // Countdown auto-stop
+    if (state.timerMode === 'countdown' && state.timerDuration > 0) {
+      const remaining = state.timerDuration * 1000 - state.timerElapsed;
+      if (remaining <= 0) {
+        stopTimer();
+      }
+    }
+  }, 100);
+}
+
+function stopTimer() {
+  state.timerRunning = false;
+  clearInterval(state.timerInterval);
+  document.getElementById('timerStartBtn').textContent = '開始';
+  document.getElementById('timerStartBtn').classList.add('timer-start');
+  document.getElementById('timerStartBtn').classList.remove('timer-stop');
+}
+
+function resetTimer() {
+  stopTimer();
+  state.timerElapsed = 0;
+  state.autoCount = 0;
+  state.lastStandingState = null;
+  state.hipYHistory = [];
+  updateTimerDisplay();
+  if (state.currentTemplate && state.currentTemplate.autoCount) {
+    document.getElementById('timerCount').textContent = '回数: 0';
+  } else {
+    document.getElementById('timerCount').textContent = '';
+  }
+}
+
+function updateTimerDisplay() {
+  const display = document.getElementById('timerDisplay');
+  let ms;
+  if (state.timerMode === 'countdown' && state.timerDuration > 0) {
+    ms = Math.max(0, state.timerDuration * 1000 - state.timerElapsed);
+  } else {
+    ms = state.timerElapsed;
+  }
+  const totalSec = ms / 1000;
+  const min = Math.floor(totalSec / 60);
+  const sec = Math.floor(totalSec % 60);
+  const tenth = Math.floor((totalSec * 10) % 10);
+  display.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${tenth}`;
+}
+
+// ===== SCREENSHOT =====
+function takeScreenshot() {
+  const video = document.getElementById('cameraVideo');
+  const overlay = document.getElementById('overlayCanvas');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 1280;
+  canvas.height = video.videoHeight || 720;
+  const ctx = canvas.getContext('2d');
+
+  // Draw video frame
+  if (!state.skeletonOnly) {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Draw skeleton overlay
+  ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+
+  // Add timestamp and template info
+  const now = new Date();
+  const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  ctx.font = 'bold 16px sans-serif';
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(8, canvas.height - 36, ctx.measureText(ts).width + 20, 28);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(ts, 18, canvas.height - 14);
+
+  if (state.currentTemplate) {
+    const label = `${state.currentTemplate.code} ${state.currentTemplate.name}`;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(8, 8, ctx.measureText(label).width + 20, 28);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, 18, 28);
+  }
+
+  canvas.toBlob(blob => {
+    state.lastResultBlob = blob;
+    state.lastResultType = 'image';
+    showResult();
+  }, 'image/png');
+}
+
+// ===== RECORDING =====
+function toggleRecording() {
+  if (state.isRecording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+function startRecording() {
+  const video = document.getElementById('cameraVideo');
+  const overlay = document.getElementById('overlayCanvas');
+
+  // Create composite canvas for recording
+  const recCanvas = document.createElement('canvas');
+  recCanvas.width = video.videoWidth || 1280;
+  recCanvas.height = video.videoHeight || 720;
+  const recCtx = recCanvas.getContext('2d');
+
+  // Composite loop
+  const drawComposite = () => {
+    if (!state.isRecording) return;
+    if (!state.skeletonOnly) {
+      recCtx.drawImage(video, 0, 0, recCanvas.width, recCanvas.height);
+    } else {
+      recCtx.fillStyle = '#111827';
+      recCtx.fillRect(0, 0, recCanvas.width, recCanvas.height);
+    }
+    recCtx.drawImage(overlay, 0, 0, recCanvas.width, recCanvas.height);
+    requestAnimationFrame(drawComposite);
+  };
+
+  const stream = recCanvas.captureStream(30);
+  const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' :
+                   MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4';
+
+  state.mediaRecorder = new MediaRecorder(stream, { mimeType });
+  state.recordedChunks = [];
+
+  state.mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) state.recordedChunks.push(e.data);
+  };
+
+  state.mediaRecorder.onstop = () => {
+    const blob = new Blob(state.recordedChunks, { type: mimeType });
+    state.lastResultBlob = blob;
+    state.lastResultType = 'video';
+    showResult();
+  };
+
+  state.mediaRecorder.start(100);
+  state.isRecording = true;
+  drawComposite();
+
+  document.getElementById('recordBtn').classList.add('recording');
+  document.getElementById('captureStatus').textContent = '録画中';
+  document.getElementById('captureStatus').classList.add('recording');
+}
+
+function stopRecording() {
+  if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+    state.mediaRecorder.stop();
+  }
+  state.isRecording = false;
+  document.getElementById('recordBtn').classList.remove('recording');
+  document.getElementById('captureStatus').textContent = '検出中 ✓';
+  document.getElementById('captureStatus').classList.remove('recording');
+}
+
+// ===== RESULT =====
+function showResult() {
+  showScreen('resultScreen');
+  const preview = document.getElementById('resultPreview');
+  preview.innerHTML = '';
+
+  if (state.lastResultType === 'image') {
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(state.lastResultBlob);
+    preview.appendChild(img);
+  } else if (state.lastResultType === 'video') {
+    const vid = document.createElement('video');
+    vid.src = URL.createObjectURL(state.lastResultBlob);
+    vid.controls = true;
+    vid.autoplay = true;
+    vid.loop = true;
+    vid.playsInline = true;
+    preview.appendChild(vid);
+  }
+}
+
+function saveResult() {
+  if (!state.lastResultBlob) return;
+
+  const ext = state.lastResultType === 'image' ? 'png' : 'webm';
+  const now = new Date();
+  const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+  const tmplName = state.currentTemplate ? `_${state.currentTemplate.code}` : '';
+  const filename = `姿勢観察${tmplName}_${ts}.${ext}`;
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(state.lastResultBlob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  // Also save skeleton data if available
+  if (state.latestLandmarks && state.lastResultType === 'image') {
+    const jsonData = {
+      template: state.currentTemplate ? state.currentTemplate.code : null,
+      timestamp: now.toISOString(),
+      landmarks: state.latestLandmarks.map(lm => ({
+        x: lm.x, y: lm.y, z: lm.z, visibility: lm.visibility
+      }))
+    };
+    const jsonBlob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+    const jsonA = document.createElement('a');
+    jsonA.href = URL.createObjectURL(jsonBlob);
+    jsonA.download = `姿勢観察${tmplName}_${ts}_skeleton.json`;
+    jsonA.click();
+    URL.revokeObjectURL(jsonA.href);
+  }
+
+  alert('保存しました');
+}
+
+// ===== STOP CAPTURE =====
+function stopCapture() {
+  if (state.isRecording) stopRecording();
+  stopTimer();
+  showScreen('templateScreen');
+}
+
+// ===== VIDEO FILE LOAD =====
+document.getElementById('loadVideoBtn').addEventListener('click', () => {
+  document.getElementById('videoFileInput').click();
+});
+
+document.getElementById('videoFileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  state.currentTemplate = { code: 'V', name: '動画読込', guide: '読み込んだ動画に骨格を重畳します' };
+  showScreen('captureScreen');
+  document.getElementById('captureTitle').textContent = '動画読込: ' + file.name;
+
+  const video = document.getElementById('cameraVideo');
+
+  // Stop camera if running
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach(t => t.stop());
+    state.cameraStream = null;
+  }
+
+  video.srcObject = null;
+  video.src = URL.createObjectURL(file);
+  video.muted = false;
+  video.loop = true;
+  await video.play();
+
+  const canvas = document.getElementById('overlayCanvas');
+  canvas.width = video.videoWidth || 1280;
+  canvas.height = video.videoHeight || 720;
+
+  document.getElementById('captureStatus').textContent = '解析中...';
+  document.getElementById('timerOverlay').classList.remove('visible');
+
+  await initPose();
+
+  e.target.value = '';
+});
+
+// ===== INIT =====
+renderTemplates();
+</script>
+</body>
+</html>
