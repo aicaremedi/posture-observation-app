@@ -391,10 +391,186 @@ body {
 .result-btn.save { background: var(--primary); color: #fff; }
 .result-btn.retake { background: var(--gray-100); color: var(--gray-800); }
 
+/* ===== HISTORY SCREEN ===== */
+#historyScreen { background: var(--gray-50); color: var(--gray-800); }
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.history-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.history-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  background: var(--gray-100);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  overflow: hidden;
+}
+.history-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.history-info { flex: 1; min-width: 0; }
+.history-info .h-code {
+  display: inline-block;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.history-info .h-date { font-size: 0.8rem; color: var(--gray-600); margin-top: 2px; }
+.history-info .h-uploaded { font-size: 0.72rem; color: var(--accent); font-weight: 600; }
+.history-actions-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.h-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.h-btn.view { background: var(--primary-light); color: var(--primary); }
+.h-btn.del { background: #fee2e2; color: var(--danger); }
+.compare-check { transform: scale(1.4); accent-color: var(--primary); margin-right: 4px; }
+.history-empty { text-align: center; color: var(--gray-600); padding: 48px 16px; }
+.compare-bar {
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid var(--gray-200);
+}
+.compare-bar button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.compare-bar button:disabled { background: var(--gray-200); color: var(--gray-600); }
+
+/* ===== COMPARE SCREEN ===== */
+#compareScreen { background: #000; }
+.compare-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  overflow: hidden;
+}
+.compare-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #111;
+}
+.compare-cell img, .compare-cell video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.compare-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 10px;
+  z-index: 2;
+}
+
+/* ===== SETTINGS MODAL ===== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal-overlay.visible { display: flex; }
+.modal-box {
+  background: #fff;
+  color: var(--gray-800);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal-box h3 { font-size: 1.1rem; margin-bottom: 16px; }
+.modal-field { margin-bottom: 14px; }
+.modal-field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--gray-600); }
+.modal-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+.modal-hint { font-size: 0.75rem; color: var(--gray-600); margin-top: 4px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-actions button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.modal-save { background: var(--primary); color: #fff; }
+.modal-cancel { background: var(--gray-100); color: var(--gray-800); }
+
+/* ===== TOAST ===== */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: rgba(17,24,39,0.92);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 0.9rem;
+  z-index: 200;
+  transition: transform 0.3s;
+  max-width: 90vw;
+  text-align: center;
+}
+.toast.visible { transform: translateX(-50%) translateY(0); }
+
 /* ===== RESPONSIVE ===== */
 @media (min-width: 768px) {
   .home-buttons { max-width: 400px; }
   .template-list { max-width: 600px; margin: 0 auto; }
+  .history-list { max-width: 600px; margin: 0 auto; width: 100%; }
 }
 </style>
 </head>
@@ -412,6 +588,14 @@ body {
     <button class="home-btn secondary-btn" id="loadVideoBtn">
       <span class="icon">📂</span>
       <span>動画を読み込む</span>
+    </button>
+    <button class="home-btn secondary-btn" onclick="openHistory()">
+      <span class="icon">🗂</span>
+      <span>履歴・前後比較</span>
+    </button>
+    <button class="home-btn secondary-btn" onclick="openSettings()">
+      <span class="icon">⚙️</span>
+      <span>設定</span>
     </button>
   </div>
   <input type="file" id="videoFileInput" accept="video/*" style="display:none">
@@ -487,9 +671,55 @@ body {
   <div class="result-preview" id="resultPreview"></div>
   <div class="result-actions">
     <button class="result-btn retake" onclick="showScreen('captureScreen')">再撮影</button>
+    <button class="result-btn retake" onclick="downloadResult()">端末にDL</button>
     <button class="result-btn save" onclick="saveResult()">保存</button>
   </div>
 </div>
+
+<!-- ===== HISTORY SCREEN ===== -->
+<div id="historyScreen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('homeScreen')">←</button>
+    <div class="screen-title">履歴・前後比較</div>
+  </div>
+  <div class="history-list" id="historyList"></div>
+  <div class="compare-bar">
+    <button id="compareBtn" disabled onclick="openCompare()">2件選んで比較する</button>
+  </div>
+</div>
+
+<!-- ===== COMPARE SCREEN ===== -->
+<div id="compareScreen" class="screen">
+  <div class="screen-header" style="background:#111;border-bottom-color:#333;">
+    <button class="back-btn" style="color:#fff;" onclick="showScreen('historyScreen')">←</button>
+    <div class="screen-title" style="color:#fff;">前後比較</div>
+  </div>
+  <div class="compare-grid" id="compareGrid"></div>
+</div>
+
+<!-- ===== SETTINGS MODAL ===== -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-box">
+    <h3>⚙️ 設定</h3>
+    <div class="modal-field">
+      <label>利用者名</label>
+      <input type="text" id="settingUserName" placeholder="例: 山田太郎">
+      <div class="modal-hint">Google Drive保存時のフォルダ名になります</div>
+    </div>
+    <div class="modal-field">
+      <label>Google Drive連携URL（GASウェブアプリURL）</label>
+      <input type="url" id="settingGasUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="modal-hint">空欄の場合は端末内のみに保存されます。設定手順は管理者にお問い合わせください。</div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeSettings()">キャンセル</button>
+      <button class="modal-save" onclick="saveSettingsFromModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast"></div>
 
 <!-- MediaPipe Pose -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -638,20 +868,42 @@ function selectTemplate(category, code) {
 }
 
 // ===== MANUAL INPUT (C-8 etc) =====
-function showManualInputDialog(tmpl) {
+async function showManualInputDialog(tmpl) {
   const weight = prompt('体重を入力してください（kg）:');
-  if (weight !== null && weight !== '') {
-    const w = parseFloat(weight);
-    if (!isNaN(w)) {
-      const height = prompt('身長を入力してください（cm、初回のみ）:');
-      let bmi = '';
-      if (height) {
-        const h = parseFloat(height) / 100;
-        if (h > 0) bmi = (w / (h * h)).toFixed(1);
+  if (weight === null || weight === '') return;
+  const w = parseFloat(weight);
+  if (isNaN(w)) { showToast('数値を入力してください'); return; }
+
+  const settings = getSettings();
+  let heightCm = settings.heightCm;
+  if (!heightCm) {
+    const height = prompt('身長を入力してください（cm、初回のみ）:');
+    if (height) {
+      heightCm = parseFloat(height);
+      if (!isNaN(heightCm) && heightCm > 0) {
+        localStorage.setItem('postureAppSettings', JSON.stringify({ ...settings, heightCm }));
       }
-      const msg = `体重: ${w}kg` + (bmi ? ` / BMI: ${bmi}` : '');
-      alert(`記録しました: ${msg}\n※Phase 2でGoogle Driveに自動保存されます`);
     }
+  }
+
+  let bmi = '';
+  if (heightCm > 0) {
+    const h = heightCm / 100;
+    bmi = (w / (h * h)).toFixed(1);
+  }
+  const msg = `体重: ${w}kg` + (bmi ? ` / BMI: ${bmi}` : '');
+
+  if (settings.gasUrl) {
+    showToast('Google Driveに記録中...');
+    try {
+      await uploadMeasurementToGas('体重', w, bmi ? `BMI:${bmi}` : '');
+      showToast(`記録しました ✓ ${msg}`);
+    } catch (err) {
+      console.error('Measurement upload error:', err);
+      showToast(`記録失敗（通信エラー）: ${msg}`);
+    }
+  } else {
+    showToast(`記録: ${msg}（Drive連携は未設定）`);
   }
 }
 
@@ -1172,12 +1424,28 @@ function showResult() {
   }
 }
 
-function saveResult() {
+function buildTimestampName(now) {
+  return `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+}
+
+function currentSkeletonJson(now) {
+  if (!state.latestLandmarks) return null;
+  return {
+    template: state.currentTemplate ? state.currentTemplate.code : null,
+    timestamp: now.toISOString(),
+    landmarks: state.latestLandmarks.map(lm => ({
+      x: lm.x, y: lm.y, z: lm.z, visibility: lm.visibility
+    }))
+  };
+}
+
+// 端末へのダウンロード（従来の保存動作）
+function downloadResult() {
   if (!state.lastResultBlob) return;
 
   const ext = state.lastResultType === 'image' ? 'png' : 'webm';
   const now = new Date();
-  const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+  const ts = buildTimestampName(now);
   const tmplName = state.currentTemplate ? `_${state.currentTemplate.code}` : '';
   const filename = `姿勢観察${tmplName}_${ts}.${ext}`;
 
@@ -1187,15 +1455,8 @@ function saveResult() {
   a.click();
   URL.revokeObjectURL(a.href);
 
-  // Also save skeleton data if available
   if (state.latestLandmarks && state.lastResultType === 'image') {
-    const jsonData = {
-      template: state.currentTemplate ? state.currentTemplate.code : null,
-      timestamp: now.toISOString(),
-      landmarks: state.latestLandmarks.map(lm => ({
-        x: lm.x, y: lm.y, z: lm.z, visibility: lm.visibility
-      }))
-    };
+    const jsonData = currentSkeletonJson(now);
     const jsonBlob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
     const jsonA = document.createElement('a');
     jsonA.href = URL.createObjectURL(jsonBlob);
@@ -1204,7 +1465,48 @@ function saveResult() {
     URL.revokeObjectURL(jsonA.href);
   }
 
-  alert('保存しました');
+  showToast('端末にダウンロードしました');
+}
+
+// 保存（履歴に記録 + Google Drive自動アップロード）
+async function saveResult() {
+  if (!state.lastResultBlob) return;
+
+  const now = new Date();
+  const record = {
+    template: state.currentTemplate ? state.currentTemplate.code : null,
+    templateName: state.currentTemplate ? state.currentTemplate.name : '',
+    type: state.lastResultType,
+    blob: state.lastResultBlob,
+    skeleton: (state.lastResultType === 'image') ? currentSkeletonJson(now) : null,
+    timestamp: now.toISOString(),
+    uploaded: false,
+  };
+
+  try {
+    const id = await dbAdd(record);
+    let msg = '履歴に保存しました';
+
+    const settings = getSettings();
+    if (settings.gasUrl) {
+      showToast('Google Driveにアップロード中...');
+      try {
+        await uploadRecordToGas(record);
+        record.id = id;
+        record.uploaded = true;
+        await dbPut(record);
+        msg = 'Google Driveに保存しました ✓';
+      } catch (err) {
+        console.error('Upload error:', err);
+        msg = '履歴に保存（Drive送信は失敗。後で再送できます）';
+      }
+    }
+    showToast(msg);
+    showScreen('captureScreen');
+  } catch (err) {
+    console.error('Save error:', err);
+    showToast('保存に失敗しました');
+  }
 }
 
 // ===== STOP CAPTURE =====
@@ -1252,6 +1554,302 @@ document.getElementById('videoFileInput').addEventListener('change', async (e) =
 
   e.target.value = '';
 });
+
+// ===== TOAST =====
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('visible'), 3000);
+}
+
+// ===== SETTINGS =====
+function getSettings() {
+  try {
+    return JSON.parse(localStorage.getItem('postureAppSettings') || '{}');
+  } catch (e) { return {}; }
+}
+
+function openSettings() {
+  const s = getSettings();
+  document.getElementById('settingUserName').value = s.userName || '';
+  document.getElementById('settingGasUrl').value = s.gasUrl || '';
+  document.getElementById('settingsModal').classList.add('visible');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('visible');
+}
+
+function saveSettingsFromModal() {
+  const settings = {
+    userName: document.getElementById('settingUserName').value.trim(),
+    gasUrl: document.getElementById('settingGasUrl').value.trim(),
+  };
+  localStorage.setItem('postureAppSettings', JSON.stringify(settings));
+  closeSettings();
+  showToast('設定を保存しました');
+}
+
+// ===== IndexedDB =====
+let dbInstance = null;
+function openDB() {
+  if (dbInstance) return Promise.resolve(dbInstance);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('postureApp', 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('records')) {
+        const store = db.createObjectStore('records', { keyPath: 'id', autoIncrement: true });
+        store.createIndex('timestamp', 'timestamp');
+      }
+    };
+    req.onsuccess = () => { dbInstance = req.result; resolve(dbInstance); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbAdd(record) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readwrite');
+    const req = tx.objectStore('records').add(record);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbPut(record) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readwrite');
+    const req = tx.objectStore('records').put(record);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbGetAll() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readonly');
+    const req = tx.objectStore('records').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbDelete(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readwrite');
+    const req = tx.objectStore('records').delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ===== GAS UPLOAD =====
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function uploadRecordToGas(record) {
+  const settings = getSettings();
+  if (!settings.gasUrl) throw new Error('GAS URL not configured');
+
+  const dataBase64 = await blobToBase64(record.blob);
+  const ext = record.type === 'image' ? 'png' : 'webm';
+  const ts = record.timestamp.replace(/[:.]/g, '-');
+  const payload = {
+    action: 'saveFile',
+    user: settings.userName || '未設定',
+    template: record.template || 'V',
+    templateName: record.templateName || '',
+    type: record.type,
+    filename: `${ts}_${record.template || 'V'}.${ext}`,
+    mimeType: record.type === 'image' ? 'image/png' : 'video/webm',
+    dataBase64,
+    skeleton: record.skeleton,
+    timestamp: record.timestamp,
+  };
+
+  // text/plainにするとCORSプリフライトを回避できる（GAS Webアプリの定番パターン）
+  const res = await fetch(settings.gasUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+  const result = await res.json();
+  if (result.status !== 'ok') throw new Error(result.message || 'GAS error');
+  return result;
+}
+
+async function uploadMeasurementToGas(item, value, extra) {
+  const settings = getSettings();
+  if (!settings.gasUrl) return false;
+  const payload = {
+    action: 'saveMeasurement',
+    user: settings.userName || '未設定',
+    item, value, extra: extra || '',
+    timestamp: new Date().toISOString(),
+  };
+  const res = await fetch(settings.gasUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+  const result = await res.json();
+  return result.status === 'ok';
+}
+
+// ===== HISTORY =====
+const compareSelection = new Set();
+
+async function openHistory() {
+  showScreen('historyScreen');
+  compareSelection.clear();
+  updateCompareBtn();
+  await renderHistory();
+}
+
+async function renderHistory() {
+  const list = document.getElementById('historyList');
+  let records = [];
+  try {
+    records = await dbGetAll();
+  } catch (e) {
+    console.error('DB error:', e);
+  }
+  records.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+  if (records.length === 0) {
+    list.innerHTML = '<div class="history-empty">まだ記録がありません。<br>撮影して「保存」すると、ここに履歴が残ります。</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  records.forEach(rec => {
+    const card = document.createElement('div');
+    card.className = 'history-card';
+
+    const thumb = document.createElement('div');
+    thumb.className = 'history-thumb';
+    if (rec.type === 'image' && rec.blob) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(rec.blob);
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = '🎬';
+    }
+
+    const info = document.createElement('div');
+    info.className = 'history-info';
+    const d = new Date(rec.timestamp);
+    const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    info.innerHTML = `
+      <span class="h-code">${rec.template || '─'}</span> ${rec.templateName || ''}
+      <div class="h-date">${dateStr}</div>
+      ${rec.uploaded ? '<div class="h-uploaded">☁ Drive保存済み</div>' : ''}
+    `;
+
+    const actions = document.createElement('div');
+    actions.className = 'history-actions-col';
+
+    const checkLabel = document.createElement('label');
+    checkLabel.style.cssText = 'font-size:0.75rem;display:flex;align-items:center;cursor:pointer;';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.className = 'compare-check';
+    check.checked = compareSelection.has(rec.id);
+    check.onchange = () => {
+      if (check.checked) {
+        if (compareSelection.size >= 2) {
+          check.checked = false;
+          showToast('比較できるのは2件までです');
+          return;
+        }
+        compareSelection.add(rec.id);
+      } else {
+        compareSelection.delete(rec.id);
+      }
+      updateCompareBtn();
+    };
+    checkLabel.appendChild(check);
+    checkLabel.appendChild(document.createTextNode('比較'));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'h-btn del';
+    delBtn.textContent = '削除';
+    delBtn.onclick = async () => {
+      if (confirm('この記録を削除しますか？')) {
+        await dbDelete(rec.id);
+        compareSelection.delete(rec.id);
+        updateCompareBtn();
+        renderHistory();
+      }
+    };
+
+    actions.appendChild(checkLabel);
+    actions.appendChild(delBtn);
+
+    card.appendChild(thumb);
+    card.appendChild(info);
+    card.appendChild(actions);
+    list.appendChild(card);
+  });
+}
+
+function updateCompareBtn() {
+  const btn = document.getElementById('compareBtn');
+  btn.disabled = compareSelection.size !== 2;
+  btn.textContent = compareSelection.size === 2 ? 'この2件を比較する' : `2件選んで比較する（${compareSelection.size}/2）`;
+}
+
+async function openCompare() {
+  if (compareSelection.size !== 2) return;
+  const records = await dbGetAll();
+  const selected = records.filter(r => compareSelection.has(r.id));
+  selected.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+  const grid = document.getElementById('compareGrid');
+  grid.innerHTML = '';
+  selected.forEach(rec => {
+    const cell = document.createElement('div');
+    cell.className = 'compare-cell';
+
+    const label = document.createElement('div');
+    label.className = 'compare-label';
+    const d = new Date(rec.timestamp);
+    label.textContent = `${rec.template || ''} ${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    cell.appendChild(label);
+
+    if (rec.type === 'image') {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(rec.blob);
+      cell.appendChild(img);
+    } else {
+      const vid = document.createElement('video');
+      vid.src = URL.createObjectURL(rec.blob);
+      vid.controls = true;
+      vid.loop = true;
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.autoplay = true;
+      cell.appendChild(vid);
+    }
+    grid.appendChild(cell);
+  });
+
+  showScreen('compareScreen');
+}
 
 // ===== INIT =====
 renderTemplates();
