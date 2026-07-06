@@ -2558,6 +2558,20 @@ async function uploadAnnotationToGas(record) {
 }
 
 // ===== INIT =====
+// URLパラメータ ?gas=... で施設の保存先を自動設定（タブレット初期設定の簡略化）
+(function bootstrapGasFromUrl() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const gas = params.get('gas');
+    if (gas && gas.startsWith('https://script.google.com/')) {
+      const settings = getSettings();
+      localStorage.setItem('postureAppSettings', JSON.stringify({ ...settings, gasUrl: gas }));
+      history.replaceState(null, '', location.pathname);
+      setTimeout(() => showToast('施設の保存先を設定しました ✓'), 500);
+    }
+  } catch (e) { /* 失敗しても起動は続行 */ }
+})();
+
 setupAnnoCanvasEvents();
 renderTemplates();
 updateUserLabel();
