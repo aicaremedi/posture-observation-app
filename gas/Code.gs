@@ -35,10 +35,16 @@ function doPost(e) {
       case 'adminOverview': r = withAdmin(p, adminOverview); break;
       case 'adminListCorps': r = withAdmin(p, adminListCorps); break;
       case 'adminAddCorp': r = withAdmin(p, adminAddCorp); break;
+      case 'adminUpdateCorp': r = withAdmin(p, adminUpdateCorp); break;
+      case 'adminSetCorpStatus': r = withAdmin(p, adminSetCorpStatus); break;
       case 'adminListFacilities': r = withAdmin(p, adminListFacilities); break;
       case 'adminAddFacility': r = withAdmin(p, adminAddFacility); break;
       case 'adminSetFacilityStatus': r = withAdmin(p, adminSetFacilityStatus); break;
       case 'adminResetPassword': r = withAdmin(p, adminResetPassword); break;
+      case 'adminSaveSettings': r = withAdmin(p, adminSaveSettings); break;
+      case 'adminGenerateInvoices': r = withAdmin(p, adminGenerateInvoices); break;
+      case 'adminSetInvoiceStatus': r = withAdmin(p, adminSetInvoiceStatus); break;
+      case 'adminDeleteInvoice': r = withAdmin(p, adminDeleteInvoice); break;
       // 事業所（要ログイン）
       case 'listUsers': r = withFacility(p, apiListUsers); break;
       case 'addUser': r = withFacility(p, apiAddUser); break;
@@ -76,8 +82,9 @@ function jsonOut(obj) {
 // Drive検索/シートアクセスを最小限にする
 
 var _cache = { ss: null, db: null };
-const DB_CACHE_KEY = 'systemDb_v1';
+const DB_CACHE_KEY = 'systemDb_v2';
 const DB_CACHE_SEC = 300; // 5分（更新系の操作時は即時無効化する）
+const TAX_RATE = 0.10; // 消費税率
 
 function getSystemSS() {
   if (_cache.ss) return _cache.ss;
@@ -122,6 +129,7 @@ function loadDb() {
   }
 
   const ss = getSystemSS();
+  ensureExtendedStructure(ss);
   const settings = {};
   sheetRows(ss.getSheetByName('設定')).forEach(function(r) {
     settings[String(r[0])] = String(r[1]);
@@ -129,7 +137,8 @@ function loadDb() {
   const db = {
     settings: settings,
     corps: sheetRows(ss.getSheetByName('法人')).map(function(r) { return r.map(String); }),
-    facilities: sheetRows(ss.getSheetByName('事業所')).map(function(r) { return r.map(String); })
+    facilities: sheetRows(ss.getSheetByName('事業所')).map(function(r) { return r.map(String); }),
+    invoices: sheetRows(ss.getSheetByName('請求')).map(function(r) { return r.map(String); })
   };
   try {
     CacheService.getScriptCache().put(DB_CACHE_KEY, JSON.stringify(db), DB_CACHE_SEC);
@@ -141,6 +150,18 @@ function loadDb() {
 function invalidateDb() {
   _cache.db = null;
   CacheService.getScriptCache().remove(DB_CACHE_KEY);
+}
+
+/** 法人シートの拡張列と請求シートを保証（キャッシュ再構築時のみ実行される） */
+function ensureExtendedStructure(ss) {
+  const corpSheet = ss.getSheetByName('法人');
+  if (corpSheet && String(corpSheet.getRange(1, 5).getValue()) !== '担当者') {
+    corpSheet.getRange(1, 5, 1, 6)
+      .setValues([['担当者', 'メール', '電話', '住所', '単価税抜', '備考']])
+      .setFontWeight('bold');
+  }
+  ensureSheet(ss, '請求',
+    ['請求ID', '法人ID', '対象月', '事業所数', '単価税抜', '税抜額', '消費税', '税込額', '状態', '発行日', '支払期限']);
 }
 
 function corpRows() { return loadDb().corps; }
@@ -234,10 +255,16 @@ function withAdmin(p, fn) {
 // ===== 法人・事業所管理（システム管理者） =====
 
 function adminOverview(p) {
+  const db = loadDb();
+  const billSettings = {};
+  ['bill_company', 'bill_address', 'bill_tel', 'bill_bank', 'bill_invoiceNo', 'bill_dueDays', 'bill_note']
+    .forEach(function(k) { billSettings[k] = db.settings[k] || ''; });
   return {
     status: 'ok',
     corps: adminListCorps(p).corps,
-    facilities: adminListFacilities(p).facilities
+    facilities: adminListFacilities(p).facilities,
+    invoices: adminListInvoices(),
+    billSettings: billSettings
   };
 }
 
@@ -246,9 +273,146 @@ function adminListCorps(p) {
   return {
     status: 'ok',
     corps: rows.map(function(r) {
-      return { corpId: String(r[0]), name: String(r[1]), active: String(r[2]) === '有効' };
+      return {
+        corpId: String(r[0]),
+        name: String(r[1]),
+        active: String(r[2]) === '有効',
+        contact: String(r[4] || ''),
+        email: String(r[5] || ''),
+        tel: String(r[6] || ''),
+        address: String(r[7] || ''),
+        unitPrice: Number(r[8] || 0),
+        note: String(r[9] || '')
+      };
     })
   };
+}
+
+function adminUpdateCorp(p) {
+  const sheet = getSystemSS().getSheetByName('法人');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(p.corpId)) {
+      sheet.getRange(i + 2, 5, 1, 6).setValues([[
+        String(p.contact || ''), String(p.email || ''), String(p.tel || ''),
+        String(p.address || ''), Number(p.unitPrice || 0), String(p.note || '')
+      ]]);
+      invalidateDb();
+      return { status: 'ok' };
+    }
+  }
+  return { status: 'error', message: '法人が見つかりません' };
+}
+
+function adminSetCorpStatus(p) {
+  const sheet = getSystemSS().getSheetByName('法人');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(p.corpId)) {
+      sheet.getRange(i + 2, 3).setValue(p.active ? '有効' : '停止');
+      invalidateDb();
+      return { status: 'ok' };
+    }
+  }
+  return { status: 'error', message: '法人が見つかりません' };
+}
+
+// ===== 請求元設定 =====
+
+function adminSaveSettings(p) {
+  const s = p.settings || {};
+  ['bill_company', 'bill_address', 'bill_tel', 'bill_bank', 'bill_invoiceNo', 'bill_dueDays', 'bill_note']
+    .forEach(function(k) {
+      if (s.hasOwnProperty(k)) setSetting(k, String(s[k]));
+    });
+  return { status: 'ok' };
+}
+
+// ===== 請求管理 =====
+
+function adminListInvoices() {
+  const corps = {};
+  corpRows().forEach(function(r) { corps[String(r[0])] = String(r[1]); });
+  return loadDb().invoices.map(function(r) {
+    return {
+      invoiceId: String(r[0]), corpId: String(r[1]), corpName: corps[String(r[1])] || '',
+      month: String(r[2]), count: Number(r[3] || 0), unitPrice: Number(r[4] || 0),
+      net: Number(r[5] || 0), tax: Number(r[6] || 0), total: Number(r[7] || 0),
+      state: String(r[8] || ''), issuedAt: String(r[9] || ''), dueDate: String(r[10] || '')
+    };
+  });
+}
+
+/** 対象月（YYYY-MM）の請求書を有効法人に対して一括生成 */
+function adminGenerateInvoices(p) {
+  const month = String(p.month || '');
+  if (!/^\d{4}-\d{2}$/.test(month)) return { status: 'error', message: '対象月の形式が不正です（YYYY-MM）' };
+
+  const existing = {};
+  loadDb().invoices.forEach(function(r) { existing[String(r[1]) + ':' + String(r[2])] = true; });
+
+  // 法人ごとの有効事業所数
+  const activeCount = {};
+  facilityRows().forEach(function(r) {
+    if (String(r[5]) === '有効') {
+      const cid = String(r[2]);
+      activeCount[cid] = (activeCount[cid] || 0) + 1;
+    }
+  });
+
+  const dueDays = Number(getSetting('bill_dueDays') || 30);
+  const sheet = getSystemSS().getSheetByName('請求');
+  const today = new Date();
+  const due = new Date(today.getTime() + dueDays * 24 * 60 * 60 * 1000);
+  const fmt = function(d) {
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  };
+
+  var created = 0, skippedExisting = 0, skippedNoTarget = 0;
+  corpRows().forEach(function(r) {
+    const corpId = String(r[0]);
+    if (String(r[2]) !== '有効') { skippedNoTarget++; return; }
+    if (existing[corpId + ':' + month]) { skippedExisting++; return; }
+    const unitPrice = Number(r[8] || 0);
+    const count = activeCount[corpId] || 0;
+    if (unitPrice <= 0 || count <= 0) { skippedNoTarget++; return; }
+
+    const net = unitPrice * count;
+    const tax = Math.floor(net * TAX_RATE);
+    sheet.appendRow([
+      'INV-' + month + '-' + corpId, corpId, month, count, unitPrice,
+      net, tax, net + tax, '発行済', fmt(today), fmt(due)
+    ]);
+    created++;
+  });
+  invalidateDb();
+  return { status: 'ok', created: created, skippedExisting: skippedExisting, skippedNoTarget: skippedNoTarget };
+}
+
+function adminSetInvoiceStatus(p) {
+  const sheet = getSystemSS().getSheetByName('請求');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(p.invoiceId)) {
+      sheet.getRange(i + 2, 9).setValue(String(p.state || '発行済'));
+      invalidateDb();
+      return { status: 'ok' };
+    }
+  }
+  return { status: 'error', message: '請求書が見つかりません' };
+}
+
+function adminDeleteInvoice(p) {
+  const sheet = getSystemSS().getSheetByName('請求');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(p.invoiceId)) {
+      sheet.deleteRow(i + 2);
+      invalidateDb();
+      return { status: 'ok' };
+    }
+  }
+  return { status: 'error', message: '請求書が見つかりません' };
 }
 
 function adminAddCorp(p) {

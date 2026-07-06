@@ -13,6 +13,7 @@
   --accent-light: #d1fae5;
   --danger: #dc2626;
   --warning: #d97706;
+  --warning-light: #fef3c7;
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
@@ -30,12 +31,12 @@ body {
 .header {
   background: linear-gradient(135deg, #0f172a, #1e3a5f);
   color: #fff;
-  padding: 20px 24px;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.header h1 { font-size: 1.15rem; }
+.header h1 { font-size: 1.1rem; }
 .header .logout-btn {
   background: rgba(255,255,255,0.15);
   border: none;
@@ -45,6 +46,29 @@ body {
   cursor: pointer;
   font-size: 0.85rem;
 }
+
+/* ===== タブナビゲーション ===== */
+.tab-nav {
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  overflow-x: auto;
+}
+.tab-btn {
+  border: none;
+  background: none;
+  padding: 14px 18px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
 .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 
 .card {
@@ -59,13 +83,15 @@ body {
 .login-card { max-width: 400px; margin: 60px auto; }
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--gray-600); margin-bottom: 4px; }
-.field input, .field select {
+.field input, .field select, .field textarea {
   width: 100%;
   padding: 11px 12px;
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   font-size: 0.95rem;
+  font-family: inherit;
 }
+.field textarea { resize: vertical; min-height: 60px; }
 .btn {
   border: none;
   border-radius: 8px;
@@ -88,14 +114,18 @@ table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th, td { border: 1px solid var(--gray-200); padding: 10px 14px; text-align: left; vertical-align: middle; }
 th { background: var(--gray-100); white-space: nowrap; }
 td { white-space: nowrap; }
-td.col-name { white-space: normal; min-width: 180px; line-height: 1.4; }
+td.col-name { white-space: normal; min-width: 160px; line-height: 1.4; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .status-active { color: var(--accent); font-weight: 700; }
 .status-stopped { color: var(--danger); font-weight: 700; }
+.state-issued { color: var(--warning); font-weight: 700; }
+.state-paid { color: var(--accent); font-weight: 700; }
 .ops { display: flex; gap: 8px; align-items: center; }
 .pw-cell { display: flex; gap: 10px; align-items: center; }
 .pw-value { font-family: Consolas, monospace; font-weight: 700; font-size: 0.95rem; letter-spacing: 1px; min-width: 90px; }
 .loading-row td { text-align: center; color: #9ca3af; padding: 24px; }
 button:disabled { opacity: 0.5; cursor: default; }
+
 .add-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
 .add-row .field { flex: 1; min-width: 160px; margin-bottom: 0; }
 
@@ -109,17 +139,58 @@ button:disabled { opacity: 0.5; cursor: default; }
 }
 .cred-box.visible { display: block; }
 .cred-box .cred-title { font-weight: 700; color: var(--accent); margin-bottom: 6px; }
-.cred-box code {
-  background: #fff;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 700;
-}
+.cred-box code { background: #fff; padding: 2px 8px; border-radius: 4px; font-size: 1rem; font-weight: 700; }
 .cred-box .warn { font-size: 0.78rem; color: var(--warning); margin-top: 6px; }
+
+/* ===== ダッシュボード ===== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.stat-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 18px;
+}
+.stat-card .stat-label { font-size: 0.82rem; color: var(--gray-600); font-weight: 600; }
+.stat-card .stat-value { font-size: 1.7rem; font-weight: 800; margin-top: 4px; }
+.stat-card .stat-sub { font-size: 0.78rem; color: var(--gray-600); margin-top: 2px; }
+.stat-card.warn .stat-value { color: var(--warning); }
+
+/* ===== モーダル ===== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+}
+.modal-overlay.visible { display: flex; }
+.modal-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  width: 100%;
+  max-width: 520px;
+}
+.modal-box h3 { font-size: 1.05rem; margin-bottom: 14px; color: var(--primary); }
+.modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+.modal-actions .btn { flex: 1; }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.form-grid .full { grid-column: 1 / -1; }
+@media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
 
 .view { display: none; }
 .view.active { display: block; }
+.tab-page { display: none; }
+.tab-page.active { display: block; }
 
 .toast {
   position: fixed;
@@ -159,7 +230,7 @@ button:disabled { opacity: 0.5; cursor: default; }
     <div class="card login-card" id="initCard" style="display:none;">
       <h2>初期設定（初回のみ）</h2>
       <p style="font-size:0.85rem;color:var(--gray-600);margin-bottom:12px;">
-        システム管理パスワードを設定します。このパスワードで法人・事業所アカウントを管理します。
+        システム管理パスワードを設定します。
       </p>
       <div class="field">
         <label>新しいパスワード（8文字以上）</label>
@@ -177,50 +248,181 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 <!-- 管理メイン -->
 <div class="view" id="mainView">
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="dashboard" onclick="switchTab(this)">📊 ダッシュボード</button>
+    <button class="tab-btn" data-tab="corps" onclick="switchTab(this)">🏛 法人管理</button>
+    <button class="tab-btn" data-tab="facilities" onclick="switchTab(this)">🏢 事業所管理</button>
+    <button class="tab-btn" data-tab="billing" onclick="switchTab(this)">💰 請求管理</button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab(this)">⚙️ 設定</button>
+  </div>
+
   <div class="wrap">
 
-    <div class="card">
-      <h2>🏛 法人アカウント</h2>
-      <div class="add-row">
-        <div class="field">
-          <label>新しい法人名</label>
-          <input type="text" id="newCorpName" placeholder="例: 株式会社○○ケア">
+    <!-- ダッシュボード -->
+    <div class="tab-page active" id="tab-dashboard">
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="card" style="margin-top:20px;">
+        <h2>📋 最近の請求</h2>
+        <div class="table-scroll">
+          <table id="dashInvoiceTable">
+            <tr><th>対象月</th><th>法人</th><th>税込額</th><th>状態</th></tr>
+          </table>
         </div>
-        <button class="btn btn-green" onclick="addCorp()">法人を追加</button>
-      </div>
-      <div class="table-scroll">
-        <table id="corpTable">
-          <tr><th>法人ID</th><th>法人名</th><th>状態</th></tr>
-        </table>
       </div>
     </div>
 
-    <div class="card">
-      <h2>🏢 事業所アカウント</h2>
-      <div class="add-row">
-        <div class="field">
-          <label>所属法人</label>
-          <select id="newFacilityCorp"></select>
+    <!-- 法人管理 -->
+    <div class="tab-page" id="tab-corps">
+      <div class="card">
+        <h2>🏛 法人アカウント</h2>
+        <div class="add-row">
+          <div class="field">
+            <label>新しい法人名</label>
+            <input type="text" id="newCorpName" placeholder="例: 株式会社○○ケア">
+          </div>
+          <button class="btn btn-green" onclick="addCorp()">法人を追加</button>
         </div>
-        <div class="field">
-          <label>事業所名</label>
-          <input type="text" id="newFacilityName" placeholder="例: △△デイサービス">
+        <div class="table-scroll">
+          <table id="corpTable"></table>
         </div>
-        <button class="btn btn-green" onclick="addFacility()">事業所を発行</button>
+        <div class="hint">「編集」から担当者・連絡先・1事業所あたりの月額単価（税抜）を登録すると、請求管理で請求書を自動生成できます。</div>
       </div>
-      <div class="cred-box" id="credBox">
-        <div class="cred-title">✅ 事業所アカウントを発行しました</div>
-        <div>事業所ID: <code id="credId"></code>　パスワード: <code id="credPw"></code></div>
-        <div class="warn">このID・パスワードを事業所に渡してください（下の一覧の「表示」からいつでも確認できます）。</div>
-      </div>
-      <div class="table-scroll">
-        <table id="facilityTable">
-          <tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>
-        </table>
-      </div>
-      <div class="hint">「パスワード再発行」をすると、その事業所は新しいパスワードでログインし直しになります（全端末で再ログインが必要）。</div>
     </div>
 
+    <!-- 事業所管理 -->
+    <div class="tab-page" id="tab-facilities">
+      <div class="card">
+        <h2>🏢 事業所アカウント</h2>
+        <div class="add-row">
+          <div class="field">
+            <label>所属法人</label>
+            <select id="newFacilityCorp"></select>
+          </div>
+          <div class="field">
+            <label>事業所名</label>
+            <input type="text" id="newFacilityName" placeholder="例: △△デイサービス">
+          </div>
+          <button class="btn btn-green" onclick="addFacility()">事業所を発行</button>
+        </div>
+        <div class="cred-box" id="credBox">
+          <div class="cred-title">✅ 事業所アカウントを発行しました</div>
+          <div>事業所ID: <code id="credId"></code>　パスワード: <code id="credPw"></code></div>
+          <div class="warn">このID・パスワードを事業所に渡してください（下の一覧の「表示」からいつでも確認できます）。</div>
+        </div>
+        <div class="add-row" style="margin-top:14px;">
+          <div class="field" style="max-width:320px;">
+            <label>法人で絞り込み</label>
+            <select id="facilityFilter" onchange="renderFacilities()"></select>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="facilityTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 請求管理 -->
+    <div class="tab-page" id="tab-billing">
+      <div class="card">
+        <h2>💰 請求書の一括生成</h2>
+        <div class="add-row">
+          <div class="field" style="max-width:220px;">
+            <label>対象月</label>
+            <input type="month" id="billMonth">
+          </div>
+          <button class="btn btn-green" onclick="generateInvoices()">この月の請求書を一括生成</button>
+        </div>
+        <div class="hint">有効な法人ごとに「単価（税抜）× 有効事業所数 ＋ 消費税10%」で生成します。単価が未設定（0円）の法人と、生成済みの月はスキップされます。</div>
+      </div>
+      <div class="card">
+        <h2>📋 請求書一覧</h2>
+        <div class="add-row">
+          <div class="field" style="max-width:220px;">
+            <label>表示する月</label>
+            <select id="invoiceMonthFilter" onchange="renderInvoices()"></select>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="invoiceTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="tab-page" id="tab-settings">
+      <div class="card">
+        <h2>⚙️ 請求元情報（請求書に記載されます）</h2>
+        <div class="form-grid">
+          <div class="field full">
+            <label>会社名</label>
+            <input type="text" id="set_bill_company" placeholder="例: AI Care Medi 株式会社">
+          </div>
+          <div class="field full">
+            <label>住所</label>
+            <input type="text" id="set_bill_address" placeholder="例: 東京都大田区○○ 1-2-3">
+          </div>
+          <div class="field">
+            <label>電話番号</label>
+            <input type="text" id="set_bill_tel" placeholder="例: 03-1234-5678">
+          </div>
+          <div class="field">
+            <label>インボイス登録番号</label>
+            <input type="text" id="set_bill_invoiceNo" placeholder="例: T1234567890123">
+          </div>
+          <div class="field full">
+            <label>振込先</label>
+            <textarea id="set_bill_bank" placeholder="例: ○○銀行 △△支店 普通 1234567 カ)エーアイケアメディ"></textarea>
+          </div>
+          <div class="field">
+            <label>支払期限（発行から日数）</label>
+            <input type="number" id="set_bill_dueDays" placeholder="30" min="1">
+          </div>
+          <div class="field full">
+            <label>備考（請求書の下部に記載）</label>
+            <textarea id="set_bill_note" placeholder="例: お振込手数料は貴社にてご負担願います。"></textarea>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()">設定を保存</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 法人編集モーダル -->
+<div class="modal-overlay" id="corpModal">
+  <div class="modal-box">
+    <h3>🏛 法人情報の編集 ─ <span id="corpModalName"></span></h3>
+    <div class="form-grid">
+      <div class="field">
+        <label>担当者名</label>
+        <input type="text" id="edit_contact">
+      </div>
+      <div class="field">
+        <label>電話番号</label>
+        <input type="text" id="edit_tel">
+      </div>
+      <div class="field full">
+        <label>メールアドレス</label>
+        <input type="email" id="edit_email">
+      </div>
+      <div class="field full">
+        <label>住所（請求書の宛先になります）</label>
+        <input type="text" id="edit_address">
+      </div>
+      <div class="field">
+        <label>月額単価・税抜（円/事業所）</label>
+        <input type="number" id="edit_unitPrice" min="0" step="100">
+      </div>
+      <div class="field full">
+        <label>備考</label>
+        <textarea id="edit_note"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeCorpModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveCorpModal()">保存</button>
+    </div>
   </div>
 </div>
 
@@ -230,6 +432,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfdRCRfYuPQhvl0D9EHjrXolw8IPilroU-Ky9eYKCY07-m5Ciwdla5bciAIPaa49FwRw/exec';
 
 let adminToken = sessionStorage.getItem('postureAdminToken') || null;
+let data = { corps: [], facilities: [], invoices: [], billSettings: {} };
+let editingCorpId = null;
 
 let toastTimer = null;
 function showToast(msg) {
@@ -253,6 +457,21 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.getElementById('logoutBtn').style.display = (id === 'mainView') ? '' : 'none';
+}
+
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+}
+
+function yen(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ===== ログイン・初期設定 =====
@@ -306,64 +525,225 @@ function adminLogout() {
   showView('loginView');
 }
 
+function handleApiError(r) {
+  if (r.code === 'AUTH') {
+    showToast('セッション切れ。再ログインしてください');
+    adminLogout();
+  } else {
+    showToast('エラー: ' + (r.message || '不明'));
+  }
+}
+
 async function enterMain() {
   showView('mainView');
   await refreshAll();
 }
 
-// ===== 法人・事業所管理 =====
-const CORP_HEADER = '<tr><th>法人ID</th><th>法人名</th><th>状態</th></tr>';
+// ===== データ取得（1回の通信で全タブ分） =====
+const CORP_HEADER = '<tr><th>法人ID</th><th>法人名</th><th>担当者</th><th>連絡先</th><th>単価(税抜)</th><th>状態</th><th>操作</th></tr>';
 const FACILITY_HEADER = '<tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>';
+const INVOICE_HEADER = '<tr><th>対象月</th><th>法人</th><th>事業所数</th><th>単価</th><th>税抜額</th><th>消費税</th><th>税込額</th><th>状態</th><th>支払期限</th><th>操作</th></tr>';
 
 function setLoadingRows() {
   document.getElementById('corpTable').innerHTML =
-    CORP_HEADER + '<tr class="loading-row"><td colspan="3">⏳ 読み込み中...</td></tr>';
+    CORP_HEADER + '<tr class="loading-row"><td colspan="7">⏳ 読み込み中...</td></tr>';
   document.getElementById('facilityTable').innerHTML =
     FACILITY_HEADER + '<tr class="loading-row"><td colspan="6">⏳ 読み込み中...</td></tr>';
+  document.getElementById('invoiceTable').innerHTML =
+    INVOICE_HEADER + '<tr class="loading-row"><td colspan="10">⏳ 読み込み中...</td></tr>';
+  document.getElementById('statGrid').innerHTML =
+    '<div class="stat-card"><div class="stat-label">⏳ 読み込み中...</div></div>';
 }
 
-// 法人・事業所を1回の通信でまとめて取得（高速化）
 async function refreshAll() {
   setLoadingRows();
   try {
     const r = await api({ action: 'adminOverview' });
     if (r.status !== 'ok') { handleApiError(r); return; }
-    renderCorps(r.corps);
-    renderFacilities(r.facilities);
+    data = r;
+    renderDashboard();
+    renderCorps();
+    renderFacilities();
+    renderInvoices();
+    fillSettings();
   } catch (e) {
     showToast('通信エラー。再読み込みしてください');
   }
 }
 
-function renderCorps(corps) {
+// ===== ダッシュボード =====
+function renderDashboard() {
+  const corpActive = data.corps.filter(c => c.active).length;
+  const facActive = data.facilities.filter(f => f.active).length;
+  const now = new Date();
+  const thisMonth = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2);
+  const monthInv = data.invoices.filter(i => i.month === thisMonth);
+  const monthTotal = monthInv.reduce((s, i) => s + i.total, 0);
+  const unpaid = data.invoices.filter(i => i.state === '発行済');
+  const unpaidTotal = unpaid.reduce((s, i) => s + i.total, 0);
+
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">🏛 法人</div>
+      <div class="stat-value">${corpActive} <span style="font-size:0.9rem;color:var(--gray-600);">社</span></div>
+      <div class="stat-sub">全${data.corps.length}社（停止 ${data.corps.length - corpActive}）</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🏢 事業所</div>
+      <div class="stat-value">${facActive} <span style="font-size:0.9rem;color:var(--gray-600);">拠点</span></div>
+      <div class="stat-sub">全${data.facilities.length}拠点（停止 ${data.facilities.length - facActive}）</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">💰 当月請求（${thisMonth}）</div>
+      <div class="stat-value">${yen(monthTotal)}</div>
+      <div class="stat-sub">${monthInv.length}件発行</div>
+    </div>
+    <div class="stat-card ${unpaid.length ? 'warn' : ''}">
+      <div class="stat-label">⏳ 未入金</div>
+      <div class="stat-value">${unpaid.length} <span style="font-size:0.9rem;color:var(--gray-600);">件</span></div>
+      <div class="stat-sub">${yen(unpaidTotal)}</div>
+    </div>
+  `;
+
+  const table = document.getElementById('dashInvoiceTable');
+  table.innerHTML = '<tr><th>対象月</th><th>法人</th><th>税込額</th><th>状態</th></tr>';
+  const recent = [...data.invoices].sort((a, b) => b.month.localeCompare(a.month)).slice(0, 5);
+  recent.forEach(i => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i.month}</td><td class="col-name">${escapeHtml(i.corpName)}</td>` +
+      `<td class="num">${yen(i.total)}</td>` +
+      `<td class="${i.state === '入金済' ? 'state-paid' : 'state-issued'}">${i.state}</td>`;
+    table.appendChild(tr);
+  });
+  if (recent.length === 0) {
+    table.insertAdjacentHTML('beforeend', '<tr class="loading-row"><td colspan="4">まだ請求書がありません</td></tr>');
+  }
+}
+
+// ===== 法人管理 =====
+function renderCorps() {
   const table = document.getElementById('corpTable');
   table.innerHTML = CORP_HEADER;
+  data.corps.forEach(c => {
+    const tr = document.createElement('tr');
+    const contactInfo = [c.email, c.tel].filter(Boolean).join(' / ');
+    tr.innerHTML = `<td>${c.corpId}</td><td class="col-name">${escapeHtml(c.name)}</td>` +
+      `<td>${escapeHtml(c.contact || '─')}</td><td class="col-name">${escapeHtml(contactInfo || '─')}</td>` +
+      `<td class="num">${c.unitPrice ? yen(c.unitPrice) : '<span style="color:#9ca3af;">未設定</span>'}</td>` +
+      `<td class="${c.active ? 'status-active' : 'status-stopped'}">${c.active ? '有効' : '停止'}</td>`;
+
+    const opTd = document.createElement('td');
+    const ops = document.createElement('div');
+    ops.className = 'ops';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-sm btn-gray';
+    editBtn.textContent = '編集';
+    editBtn.onclick = () => openCorpModal(c);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn btn-sm ' + (c.active ? 'btn-red' : 'btn-green');
+    toggleBtn.textContent = c.active ? '停止する' : '再開する';
+    toggleBtn.onclick = async () => {
+      if (!confirm(`${c.name} を${c.active ? '停止' : '再開'}しますか？`)) return;
+      toggleBtn.disabled = true;
+      const res = await api({ action: 'adminSetCorpStatus', corpId: c.corpId, active: !c.active });
+      if (res.status === 'ok') { showToast('更新しました'); refreshAll(); }
+      else handleApiError(res);
+    };
+
+    ops.appendChild(editBtn);
+    ops.appendChild(toggleBtn);
+    opTd.appendChild(ops);
+    tr.appendChild(opTd);
+    table.appendChild(tr);
+  });
+  if (data.corps.length === 0) {
+    table.insertAdjacentHTML('beforeend',
+      '<tr class="loading-row"><td colspan="7">まだ法人がありません。上の欄から追加してください。</td></tr>');
+  }
+
+  // 事業所タブの法人セレクトも更新
   const select = document.getElementById('newFacilityCorp');
   select.innerHTML = '';
-  corps.forEach(c => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${c.corpId}</td><td class="col-name">${escapeHtml(c.name)}</td>` +
-      `<td class="${c.active ? 'status-active' : 'status-stopped'}">${c.active ? '有効' : '停止'}</td>`;
-    table.appendChild(tr);
+  data.corps.filter(c => c.active).forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.corpId;
     opt.textContent = `${c.corpId} ${c.name}`;
     select.appendChild(opt);
   });
-  if (corps.length === 0) {
-    table.insertAdjacentHTML('beforeend',
-      '<tr class="loading-row"><td colspan="3">まだ法人がありません。上の欄から追加してください。</td></tr>');
-  }
+  const filter = document.getElementById('facilityFilter');
+  const current = filter.value;
+  filter.innerHTML = '<option value="">すべての法人</option>';
+  data.corps.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.corpId;
+    opt.textContent = `${c.corpId} ${c.name}`;
+    filter.appendChild(opt);
+  });
+  filter.value = current;
 }
 
-function renderFacilities(facilities) {
+async function addCorp() {
+  const name = document.getElementById('newCorpName').value.trim();
+  if (!name) { showToast('法人名を入力してください'); return; }
+  showToast('追加中...');
+  const r = await api({ action: 'adminAddCorp', name });
+  if (r.status === 'ok') {
+    document.getElementById('newCorpName').value = '';
+    showToast(`法人「${name}」を追加しました（${r.corp.corpId}）`);
+    refreshAll();
+  } else handleApiError(r);
+}
+
+function openCorpModal(c) {
+  editingCorpId = c.corpId;
+  document.getElementById('corpModalName').textContent = c.name;
+  document.getElementById('edit_contact').value = c.contact || '';
+  document.getElementById('edit_email').value = c.email || '';
+  document.getElementById('edit_tel').value = c.tel || '';
+  document.getElementById('edit_address').value = c.address || '';
+  document.getElementById('edit_unitPrice').value = c.unitPrice || '';
+  document.getElementById('edit_note').value = c.note || '';
+  document.getElementById('corpModal').classList.add('visible');
+}
+
+function closeCorpModal() {
+  document.getElementById('corpModal').classList.remove('visible');
+  editingCorpId = null;
+}
+
+async function saveCorpModal() {
+  if (!editingCorpId) return;
+  showToast('保存中...');
+  const r = await api({
+    action: 'adminUpdateCorp',
+    corpId: editingCorpId,
+    contact: document.getElementById('edit_contact').value.trim(),
+    email: document.getElementById('edit_email').value.trim(),
+    tel: document.getElementById('edit_tel').value.trim(),
+    address: document.getElementById('edit_address').value.trim(),
+    unitPrice: Number(document.getElementById('edit_unitPrice').value || 0),
+    note: document.getElementById('edit_note').value.trim(),
+  });
+  if (r.status === 'ok') {
+    closeCorpModal();
+    showToast('法人情報を保存しました ✓');
+    refreshAll();
+  } else handleApiError(r);
+}
+
+// ===== 事業所管理 =====
+function renderFacilities() {
   const table = document.getElementById('facilityTable');
   table.innerHTML = FACILITY_HEADER;
-  facilities.forEach(f => {
+  const filter = document.getElementById('facilityFilter').value;
+  const list = data.facilities.filter(f => !filter || f.corpId === filter);
+
+  list.forEach(f => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${f.facilityId}</td><td class="col-name">${escapeHtml(f.name)}</td><td class="col-name">${escapeHtml(f.corpName)}</td>`;
 
-    // パスワード列（覗き見防止のため「表示」で開示）
     const pwTd = document.createElement('td');
     if (f.password) {
       const box = document.createElement('div');
@@ -428,22 +808,10 @@ function renderFacilities(facilities) {
     tr.appendChild(opTd);
     table.appendChild(tr);
   });
-  if (facilities.length === 0) {
+  if (list.length === 0) {
     table.insertAdjacentHTML('beforeend',
-      '<tr class="loading-row"><td colspan="6">まだ事業所がありません。</td></tr>');
+      '<tr class="loading-row"><td colspan="6">該当する事業所がありません。</td></tr>');
   }
-}
-
-async function addCorp() {
-  const name = document.getElementById('newCorpName').value.trim();
-  if (!name) { showToast('法人名を入力してください'); return; }
-  showToast('追加中...');
-  const r = await api({ action: 'adminAddCorp', name });
-  if (r.status === 'ok') {
-    document.getElementById('newCorpName').value = '';
-    showToast(`法人「${name}」を追加しました（${r.corp.corpId}）`);
-    refreshAll();
-  } else handleApiError(r);
 }
 
 async function addFacility() {
@@ -466,25 +834,201 @@ function showCred(id, pw) {
   document.getElementById('credBox').classList.add('visible');
 }
 
-function handleApiError(r) {
-  if (r.code === 'AUTH') {
-    showToast('セッション切れ。再ログインしてください');
-    adminLogout();
-  } else {
-    showToast('エラー: ' + (r.message || '不明'));
+// ===== 請求管理 =====
+async function generateInvoices() {
+  const month = document.getElementById('billMonth').value;
+  if (!month) { showToast('対象月を選択してください'); return; }
+  if (!confirm(`${month} の請求書を一括生成しますか？`)) return;
+  showToast('生成中...');
+  const r = await api({ action: 'adminGenerateInvoices', month });
+  if (r.status === 'ok') {
+    showToast(`生成 ${r.created}件 ／ 生成済みスキップ ${r.skippedExisting}件 ／ 対象外 ${r.skippedNoTarget}件`);
+    refreshAll();
+  } else handleApiError(r);
+}
+
+function renderInvoices() {
+  // 月フィルタの選択肢
+  const months = [...new Set(data.invoices.map(i => i.month))].sort().reverse();
+  const filterSel = document.getElementById('invoiceMonthFilter');
+  const current = filterSel.value;
+  filterSel.innerHTML = '<option value="">すべての月</option>';
+  months.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    filterSel.appendChild(opt);
+  });
+  filterSel.value = current;
+
+  const table = document.getElementById('invoiceTable');
+  table.innerHTML = INVOICE_HEADER;
+  const list = data.invoices
+    .filter(i => !filterSel.value || i.month === filterSel.value)
+    .sort((a, b) => b.month.localeCompare(a.month) || a.corpId.localeCompare(b.corpId));
+
+  list.forEach(inv => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${inv.month}</td><td class="col-name">${escapeHtml(inv.corpName)}</td>` +
+      `<td class="num">${inv.count}</td><td class="num">${yen(inv.unitPrice)}</td>` +
+      `<td class="num">${yen(inv.net)}</td><td class="num">${yen(inv.tax)}</td>` +
+      `<td class="num" style="font-weight:700;">${yen(inv.total)}</td>` +
+      `<td class="${inv.state === '入金済' ? 'state-paid' : 'state-issued'}">${inv.state}</td>` +
+      `<td>${inv.dueDate}</td>`;
+
+    const opTd = document.createElement('td');
+    const ops = document.createElement('div');
+    ops.className = 'ops';
+
+    const printBtn = document.createElement('button');
+    printBtn.className = 'btn btn-sm btn-primary';
+    printBtn.textContent = '請求書';
+    printBtn.onclick = () => openInvoicePage(inv);
+
+    const paidBtn = document.createElement('button');
+    paidBtn.className = 'btn btn-sm ' + (inv.state === '入金済' ? 'btn-gray' : 'btn-green');
+    paidBtn.textContent = inv.state === '入金済' ? '未入金に戻す' : '入金済にする';
+    paidBtn.onclick = async () => {
+      paidBtn.disabled = true;
+      const res = await api({ action: 'adminSetInvoiceStatus', invoiceId: inv.invoiceId, state: inv.state === '入金済' ? '発行済' : '入金済' });
+      if (res.status === 'ok') { showToast('更新しました'); refreshAll(); }
+      else handleApiError(res);
+    };
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-sm btn-red';
+    delBtn.textContent = '削除';
+    delBtn.onclick = async () => {
+      if (!confirm(`${inv.month} ${inv.corpName} の請求書を削除しますか？\n（削除後に一括生成し直すと再作成できます）`)) return;
+      delBtn.disabled = true;
+      const res = await api({ action: 'adminDeleteInvoice', invoiceId: inv.invoiceId });
+      if (res.status === 'ok') { showToast('削除しました'); refreshAll(); }
+      else handleApiError(res);
+    };
+
+    ops.appendChild(printBtn);
+    ops.appendChild(paidBtn);
+    ops.appendChild(delBtn);
+    opTd.appendChild(ops);
+    tr.appendChild(opTd);
+    table.appendChild(tr);
+  });
+  if (list.length === 0) {
+    table.insertAdjacentHTML('beforeend',
+      '<tr class="loading-row"><td colspan="10">請求書がありません。上の「一括生成」から作成してください。</td></tr>');
   }
 }
 
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// ===== 請求書 印刷ページ（新しいタブに整形して表示 → ブラウザ印刷/PDF保存） =====
+function openInvoicePage(inv) {
+  const corp = data.corps.find(c => c.corpId === inv.corpId) || {};
+  const s = data.billSettings || {};
+  const monthDisp = inv.month.replace('-', '年') + '月';
+  const e = escapeHtml;
+
+  const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+<title>請求書 ${e(inv.month)} ${e(inv.corpName)}</title>
+<style>
+  body { font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', sans-serif; color: #1f2937; margin: 0; padding: 40px; }
+  .sheet { max-width: 760px; margin: 0 auto; }
+  h1 { text-align: center; font-size: 26px; letter-spacing: 16px; border-bottom: 3px double #1f2937; padding-bottom: 10px; }
+  .row { display: flex; justify-content: space-between; margin-top: 24px; gap: 24px; }
+  .to { font-size: 15px; flex: 1; }
+  .to .corp-name { font-size: 19px; font-weight: 700; border-bottom: 1px solid #1f2937; padding-bottom: 4px; margin-bottom: 6px; }
+  .from { font-size: 12px; text-align: left; line-height: 1.7; }
+  .from .company { font-size: 15px; font-weight: 700; }
+  .meta { font-size: 12px; text-align: right; margin-top: 8px; color: #4b5563; }
+  .total-box { margin-top: 24px; display: flex; align-items: center; gap: 16px; }
+  .total-box .label { font-size: 14px; font-weight: 700; }
+  .total-box .amount { font-size: 26px; font-weight: 800; border-bottom: 2px solid #1f2937; padding: 0 24px 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; font-size: 13px; }
+  th, td { border: 1px solid #9ca3af; padding: 9px 12px; }
+  th { background: #f3f4f6; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .totals td { font-weight: 700; }
+  .bank { margin-top: 24px; font-size: 13px; border: 1px solid #9ca3af; padding: 12px 16px; }
+  .bank .bank-title { font-weight: 700; margin-bottom: 4px; }
+  .note { margin-top: 16px; font-size: 12px; color: #4b5563; white-space: pre-wrap; }
+  .print-btn { position: fixed; top: 16px; right: 16px; padding: 10px 22px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  @media print { .print-btn { display: none; } body { padding: 0; } }
+</style></head><body>
+<button class="print-btn" onclick="window.print()">🖨 印刷 / PDF保存</button>
+<div class="sheet">
+  <h1>請求書</h1>
+  <div class="meta">請求書番号: ${e(inv.invoiceId)}　発行日: ${e(inv.issuedAt)}</div>
+  <div class="row">
+    <div class="to">
+      <div class="corp-name">${e(inv.corpName)} 御中</div>
+      ${corp.address ? e(corp.address) + '<br>' : ''}
+      ${corp.contact ? 'ご担当: ' + e(corp.contact) + ' 様' : ''}
+    </div>
+    <div class="from">
+      <div class="company">${e(s.bill_company || 'AI Care Medi')}</div>
+      ${s.bill_address ? e(s.bill_address) + '<br>' : ''}
+      ${s.bill_tel ? 'TEL: ' + e(s.bill_tel) + '<br>' : ''}
+      ${s.bill_invoiceNo ? '登録番号: ' + e(s.bill_invoiceNo) : ''}
+    </div>
+  </div>
+  <div class="total-box">
+    <div class="label">ご請求金額</div>
+    <div class="amount">¥${Number(inv.total).toLocaleString('ja-JP')} <span style="font-size:13px;">(税込)</span></div>
+    <div style="font-size:12px;color:#4b5563;">お支払期限: ${e(inv.dueDate)}</div>
+  </div>
+  <table>
+    <tr><th>品目</th><th style="width:70px;">数量</th><th style="width:110px;">単価（税抜）</th><th style="width:120px;">金額（税抜）</th></tr>
+    <tr>
+      <td>姿勢観察支援アプリ 利用料（${e(monthDisp)}分）</td>
+      <td class="num">${inv.count}</td>
+      <td class="num">¥${Number(inv.unitPrice).toLocaleString('ja-JP')}</td>
+      <td class="num">¥${Number(inv.net).toLocaleString('ja-JP')}</td>
+    </tr>
+    <tr class="totals"><td colspan="3" style="text-align:right;">小計（税抜）</td><td class="num">¥${Number(inv.net).toLocaleString('ja-JP')}</td></tr>
+    <tr class="totals"><td colspan="3" style="text-align:right;">消費税（10%）</td><td class="num">¥${Number(inv.tax).toLocaleString('ja-JP')}</td></tr>
+    <tr class="totals"><td colspan="3" style="text-align:right;">合計（税込）</td><td class="num">¥${Number(inv.total).toLocaleString('ja-JP')}</td></tr>
+  </table>
+  ${s.bill_bank ? '<div class="bank"><div class="bank-title">お振込先</div>' + e(s.bill_bank).replace(/\n/g, '<br>') + '</div>' : ''}
+  ${s.bill_note ? '<div class="note">' + e(s.bill_note) + '</div>' : ''}
+</div>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { showToast('ポップアップがブロックされました。許可してください'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
-// Enterキー対応
+// ===== 設定 =====
+function fillSettings() {
+  const s = data.billSettings || {};
+  ['bill_company', 'bill_address', 'bill_tel', 'bill_bank', 'bill_invoiceNo', 'bill_dueDays', 'bill_note']
+    .forEach(k => {
+      const el = document.getElementById('set_' + k);
+      if (el) el.value = s[k] || '';
+    });
+}
+
+async function saveSettings() {
+  const settings = {};
+  ['bill_company', 'bill_address', 'bill_tel', 'bill_bank', 'bill_invoiceNo', 'bill_dueDays', 'bill_note']
+    .forEach(k => { settings[k] = document.getElementById('set_' + k).value.trim(); });
+  showToast('保存中...');
+  const r = await api({ action: 'adminSaveSettings', settings });
+  if (r.status === 'ok') {
+    data.billSettings = settings;
+    showToast('請求元情報を保存しました ✓');
+  } else handleApiError(r);
+}
+
+// ===== INIT =====
 document.getElementById('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') adminDoLogin(); });
 
-// 起動時: トークンがあれば検証を兼ねてメインへ
+// 対象月のデフォルトは当月
+(function() {
+  const now = new Date();
+  document.getElementById('billMonth').value =
+    now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2);
+})();
+
 if (adminToken) {
   enterMain();
 }
