@@ -32,6 +32,7 @@ function doPost(e) {
       case 'adminLogin': r = adminLogin(p); break;
       case 'login': r = facilityLogin(p); break;
       // システム管理者専用
+      case 'adminOverview': r = withAdmin(p, adminOverview); break;
       case 'adminListCorps': r = withAdmin(p, adminListCorps); break;
       case 'adminAddCorp': r = withAdmin(p, adminAddCorp); break;
       case 'adminListFacilities': r = withAdmin(p, adminListFacilities); break;
@@ -71,8 +72,13 @@ function jsonOut(obj) {
 }
 
 // ===== システム管理DB =====
+// 高速化: 1回の実行内ではスプレッドシート・各シートの内容をキャッシュして
+// Drive検索/シートアクセスを最小限にする
+
+var _cache = { ss: null, settings: null, corps: null, facilities: null };
 
 function getSystemSS() {
+  if (_cache.ss) return _cache.ss;
   const root = getOrCreateRootFolder();
   const ss = getOrCreateSpreadsheet(root, SYSTEM_SS_NAME);
   ensureSheet(ss, '法人', ['法人ID', '法人名', '状態', '作成日']);
@@ -83,7 +89,18 @@ function getSystemSS() {
     fSheet.getRange(1, 8).setValue('パスワード').setFontWeight('bold');
   }
   ensureSheet(ss, '設定', ['キー', '値']);
+  _cache.ss = ss;
   return ss;
+}
+
+function corpRows() {
+  if (!_cache.corps) _cache.corps = sheetRows(getSystemSS().getSheetByName('法人'));
+  return _cache.corps;
+}
+
+function facilityRows() {
+  if (!_cache.facilities) _cache.facilities = sheetRows(getSystemSS().getSheetByName('事業所'));
+  return _cache.facilities;
 }
 
 function ensureSheet(ss, name, headers) {
@@ -103,17 +120,19 @@ function sheetRows(sheet) {
 }
 
 function getSetting(key) {
-  const sheet = getSystemSS().getSheetByName('設定');
-  const rows = sheetRows(sheet);
-  for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i][0]) === key) return String(rows[i][1]);
+  if (!_cache.settings) {
+    _cache.settings = {};
+    sheetRows(getSystemSS().getSheetByName('設定')).forEach(function(r) {
+      _cache.settings[String(r[0])] = String(r[1]);
+    });
   }
-  return null;
+  return _cache.settings.hasOwnProperty(key) ? _cache.settings[key] : null;
 }
 
 function setSetting(key, value) {
   const sheet = getSystemSS().getSheetByName('設定');
   const rows = sheetRows(sheet);
+  _cache.settings = null;
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === key) { sheet.getRange(i + 2, 2).setValue(value); return; }
   }
@@ -176,8 +195,16 @@ function withAdmin(p, fn) {
 
 // ===== 法人・事業所管理（システム管理者） =====
 
+function adminOverview(p) {
+  return {
+    status: 'ok',
+    corps: adminListCorps(p).corps,
+    facilities: adminListFacilities(p).facilities
+  };
+}
+
 function adminListCorps(p) {
-  const rows = sheetRows(getSystemSS().getSheetByName('法人'));
+  const rows = corpRows();
   return {
     status: 'ok',
     corps: rows.map(function(r) {
@@ -201,14 +228,15 @@ function adminAddCorp(p) {
   });
   const corpId = 'C' + ('000' + (maxNum + 1)).slice(-3);
   sheet.appendRow([corpId, name, '有効', new Date()]);
+  _cache.corps = null;
   getOrCreateFolderIn(getOrCreateRootFolder(), name);
   return { status: 'ok', corp: { corpId: corpId, name: name } };
 }
 
 function adminListFacilities(p) {
-  const rows = sheetRows(getSystemSS().getSheetByName('事業所'));
+  const rows = facilityRows();
   const corps = {};
-  sheetRows(getSystemSS().getSheetByName('法人')).forEach(function(r) { corps[String(r[0])] = String(r[1]); });
+  corpRows().forEach(function(r) { corps[String(r[0])] = String(r[1]); });
   var list = rows.map(function(r) {
     return {
       facilityId: String(r[0]),
@@ -243,6 +271,7 @@ function adminAddFacility(p) {
   const password = randomPassword();
   const salt = randomToken();
   sheet.appendRow([facilityId, name, corpId, sha256hex(salt + password), salt, '有効', new Date(), password]);
+  _cache.facilities = null;
 
   // 法人フォルダ/事業所フォルダを自動生成
   const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), String(corpRow[1]));
@@ -260,6 +289,7 @@ function adminSetFacilityStatus(p) {
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === String(p.facilityId)) {
       sheet.getRange(i + 2, 6).setValue(p.active ? '有効' : '停止');
+      _cache.facilities = null;
       return { status: 'ok' };
     }
   }
@@ -276,6 +306,7 @@ function adminResetPassword(p) {
       sheet.getRange(i + 2, 4).setValue(sha256hex(salt + password));
       sheet.getRange(i + 2, 5).setValue(salt);
       sheet.getRange(i + 2, 8).setValue(password);
+      _cache.facilities = null;
       return { status: 'ok', facilityId: String(p.facilityId), password: password };
     }
   }
@@ -283,7 +314,7 @@ function adminResetPassword(p) {
 }
 
 function findCorp(corpId) {
-  const rows = sheetRows(getSystemSS().getSheetByName('法人'));
+  const rows = corpRows();
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === corpId) return rows[i];
   }
@@ -291,7 +322,7 @@ function findCorp(corpId) {
 }
 
 function findFacility(facilityId) {
-  const rows = sheetRows(getSystemSS().getSheetByName('事業所'));
+  const rows = facilityRows();
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === String(facilityId)) return rows[i];
   }

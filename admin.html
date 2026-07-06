@@ -45,7 +45,7 @@ body {
   cursor: pointer;
   font-size: 0.85rem;
 }
-.wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 
 .card {
   background: #fff;
@@ -83,11 +83,19 @@ body {
 .error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
 .hint { font-size: 0.78rem; color: var(--gray-600); margin-top: 8px; }
 
-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 10px; }
-th, td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: middle; }
+.table-scroll { overflow-x: auto; margin-top: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { border: 1px solid var(--gray-200); padding: 10px 14px; text-align: left; vertical-align: middle; }
 th { background: var(--gray-100); white-space: nowrap; }
+td { white-space: nowrap; }
+td.col-name { white-space: normal; min-width: 180px; line-height: 1.4; }
 .status-active { color: var(--accent); font-weight: 700; }
 .status-stopped { color: var(--danger); font-weight: 700; }
+.ops { display: flex; gap: 8px; align-items: center; }
+.pw-cell { display: flex; gap: 10px; align-items: center; }
+.pw-value { font-family: Consolas, monospace; font-weight: 700; font-size: 0.95rem; letter-spacing: 1px; min-width: 90px; }
+.loading-row td { text-align: center; color: #9ca3af; padding: 24px; }
+button:disabled { opacity: 0.5; cursor: default; }
 .add-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
 .add-row .field { flex: 1; min-width: 160px; margin-bottom: 0; }
 
@@ -180,9 +188,11 @@ th { background: var(--gray-100); white-space: nowrap; }
         </div>
         <button class="btn btn-green" onclick="addCorp()">法人を追加</button>
       </div>
-      <table id="corpTable">
-        <tr><th>法人ID</th><th>法人名</th><th>状態</th></tr>
-      </table>
+      <div class="table-scroll">
+        <table id="corpTable">
+          <tr><th>法人ID</th><th>法人名</th><th>状態</th></tr>
+        </table>
+      </div>
     </div>
 
     <div class="card">
@@ -203,9 +213,11 @@ th { background: var(--gray-100); white-space: nowrap; }
         <div>事業所ID: <code id="credId"></code>　パスワード: <code id="credPw"></code></div>
         <div class="warn">このID・パスワードを事業所に渡してください（下の一覧の「表示」からいつでも確認できます）。</div>
       </div>
-      <table id="facilityTable">
-        <tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>
-      </table>
+      <div class="table-scroll">
+        <table id="facilityTable">
+          <tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>
+        </table>
+      </div>
       <div class="hint">「パスワード再発行」をすると、その事業所は新しいパスワードでログインし直しになります（全端末で再ログインが必要）。</div>
     </div>
 
@@ -300,20 +312,37 @@ async function enterMain() {
 }
 
 // ===== 法人・事業所管理 =====
-async function refreshAll() {
-  await Promise.all([refreshCorps(), refreshFacilities()]);
+const CORP_HEADER = '<tr><th>法人ID</th><th>法人名</th><th>状態</th></tr>';
+const FACILITY_HEADER = '<tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>';
+
+function setLoadingRows() {
+  document.getElementById('corpTable').innerHTML =
+    CORP_HEADER + '<tr class="loading-row"><td colspan="3">⏳ 読み込み中...</td></tr>';
+  document.getElementById('facilityTable').innerHTML =
+    FACILITY_HEADER + '<tr class="loading-row"><td colspan="6">⏳ 読み込み中...</td></tr>';
 }
 
-async function refreshCorps() {
-  const r = await api({ action: 'adminListCorps' });
-  if (r.status !== 'ok') { handleApiError(r); return; }
+// 法人・事業所を1回の通信でまとめて取得（高速化）
+async function refreshAll() {
+  setLoadingRows();
+  try {
+    const r = await api({ action: 'adminOverview' });
+    if (r.status !== 'ok') { handleApiError(r); return; }
+    renderCorps(r.corps);
+    renderFacilities(r.facilities);
+  } catch (e) {
+    showToast('通信エラー。再読み込みしてください');
+  }
+}
+
+function renderCorps(corps) {
   const table = document.getElementById('corpTable');
-  table.innerHTML = '<tr><th>法人ID</th><th>法人名</th><th>状態</th></tr>';
+  table.innerHTML = CORP_HEADER;
   const select = document.getElementById('newFacilityCorp');
   select.innerHTML = '';
-  r.corps.forEach(c => {
+  corps.forEach(c => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${c.corpId}</td><td>${escapeHtml(c.name)}</td>` +
+    tr.innerHTML = `<td>${c.corpId}</td><td class="col-name">${escapeHtml(c.name)}</td>` +
       `<td class="${c.active ? 'status-active' : 'status-stopped'}">${c.active ? '有効' : '停止'}</td>`;
     table.appendChild(tr);
     const opt = document.createElement('option');
@@ -321,27 +350,26 @@ async function refreshCorps() {
     opt.textContent = `${c.corpId} ${c.name}`;
     select.appendChild(opt);
   });
-  if (r.corps.length === 0) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="3" style="text-align:center;color:#9ca3af;">まだ法人がありません。上の欄から追加してください。</td>';
-    table.appendChild(tr);
+  if (corps.length === 0) {
+    table.insertAdjacentHTML('beforeend',
+      '<tr class="loading-row"><td colspan="3">まだ法人がありません。上の欄から追加してください。</td></tr>');
   }
 }
 
-async function refreshFacilities() {
-  const r = await api({ action: 'adminListFacilities' });
-  if (r.status !== 'ok') { handleApiError(r); return; }
+function renderFacilities(facilities) {
   const table = document.getElementById('facilityTable');
-  table.innerHTML = '<tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>';
-  r.facilities.forEach(f => {
+  table.innerHTML = FACILITY_HEADER;
+  facilities.forEach(f => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${f.facilityId}</td><td>${escapeHtml(f.name)}</td><td>${escapeHtml(f.corpName)}</td>`;
+    tr.innerHTML = `<td>${f.facilityId}</td><td class="col-name">${escapeHtml(f.name)}</td><td class="col-name">${escapeHtml(f.corpName)}</td>`;
 
     // パスワード列（覗き見防止のため「表示」で開示）
     const pwTd = document.createElement('td');
     if (f.password) {
+      const box = document.createElement('div');
+      box.className = 'pw-cell';
       const pwSpan = document.createElement('span');
-      pwSpan.style.cssText = 'font-family:monospace;font-weight:700;margin-right:8px;';
+      pwSpan.className = 'pw-value';
       pwSpan.textContent = '••••••••';
       const pwBtn = document.createElement('button');
       pwBtn.className = 'btn btn-sm btn-gray';
@@ -352,10 +380,11 @@ async function refreshFacilities() {
         pwSpan.textContent = shown ? f.password : '••••••••';
         pwBtn.textContent = shown ? '隠す' : '表示';
       };
-      pwTd.appendChild(pwSpan);
-      pwTd.appendChild(pwBtn);
+      box.appendChild(pwSpan);
+      box.appendChild(pwBtn);
+      pwTd.appendChild(box);
     } else {
-      pwTd.innerHTML = '<span style="color:#9ca3af;font-size:0.8rem;">再発行で表示されます</span>';
+      pwTd.innerHTML = '<span style="color:#9ca3af;font-size:0.8rem;">再発行で表示</span>';
     }
     tr.appendChild(pwTd);
 
@@ -365,50 +394,55 @@ async function refreshFacilities() {
     tr.appendChild(statusTd);
 
     const opTd = document.createElement('td');
+    const ops = document.createElement('div');
+    ops.className = 'ops';
 
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'btn btn-sm ' + (f.active ? 'btn-red' : 'btn-green');
     toggleBtn.textContent = f.active ? '停止する' : '再開する';
     toggleBtn.onclick = async () => {
       if (!confirm(`${f.name} を${f.active ? '停止' : '再開'}しますか？`)) return;
+      toggleBtn.disabled = true;
       const res = await api({ action: 'adminSetFacilityStatus', facilityId: f.facilityId, active: !f.active });
-      if (res.status === 'ok') { showToast('更新しました'); refreshFacilities(); }
+      if (res.status === 'ok') { showToast('更新しました'); refreshAll(); }
       else handleApiError(res);
     };
 
     const resetBtn = document.createElement('button');
     resetBtn.className = 'btn btn-sm btn-gray';
-    resetBtn.style.marginLeft = '6px';
     resetBtn.textContent = 'パスワード再発行';
     resetBtn.onclick = async () => {
       if (!confirm(`${f.name} のパスワードを再発行しますか？\n（現在のパスワードは使えなくなります）`)) return;
+      resetBtn.disabled = true;
       const res = await api({ action: 'adminResetPassword', facilityId: f.facilityId });
       if (res.status === 'ok') {
         showCred(res.facilityId, res.password);
         showToast('パスワードを再発行しました');
+        refreshAll();
       } else handleApiError(res);
     };
 
-    opTd.appendChild(toggleBtn);
-    opTd.appendChild(resetBtn);
+    ops.appendChild(toggleBtn);
+    ops.appendChild(resetBtn);
+    opTd.appendChild(ops);
     tr.appendChild(opTd);
     table.appendChild(tr);
   });
-  if (r.facilities.length === 0) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="6" style="text-align:center;color:#9ca3af;">まだ事業所がありません。</td>';
-    table.appendChild(tr);
+  if (facilities.length === 0) {
+    table.insertAdjacentHTML('beforeend',
+      '<tr class="loading-row"><td colspan="6">まだ事業所がありません。</td></tr>');
   }
 }
 
 async function addCorp() {
   const name = document.getElementById('newCorpName').value.trim();
   if (!name) { showToast('法人名を入力してください'); return; }
+  showToast('追加中...');
   const r = await api({ action: 'adminAddCorp', name });
   if (r.status === 'ok') {
     document.getElementById('newCorpName').value = '';
     showToast(`法人「${name}」を追加しました（${r.corp.corpId}）`);
-    refreshCorps();
+    refreshAll();
   } else handleApiError(r);
 }
 
@@ -417,11 +451,12 @@ async function addFacility() {
   const name = document.getElementById('newFacilityName').value.trim();
   if (!corpId) { showToast('先に法人を追加してください'); return; }
   if (!name) { showToast('事業所名を入力してください'); return; }
+  showToast('発行中...');
   const r = await api({ action: 'adminAddFacility', corpId, name });
   if (r.status === 'ok') {
     document.getElementById('newFacilityName').value = '';
     showCred(r.facility.facilityId, r.facility.password);
-    refreshFacilities();
+    refreshAll();
   } else handleApiError(r);
 }
 
