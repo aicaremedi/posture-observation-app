@@ -200,10 +200,10 @@ th { background: var(--gray-100); white-space: nowrap; }
       <div class="cred-box" id="credBox">
         <div class="cred-title">✅ 事業所アカウントを発行しました</div>
         <div>事業所ID: <code id="credId"></code>　パスワード: <code id="credPw"></code></div>
-        <div class="warn">⚠ パスワードはこの画面にしか表示されません。今すぐ控えて事業所に渡してください。</div>
+        <div class="warn">このID・パスワードを事業所に渡してください（下の一覧の「表示」からいつでも確認できます）。</div>
       </div>
       <table id="facilityTable">
-        <tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>状態</th><th>操作</th></tr>
+        <tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>
       </table>
       <div class="hint">「パスワード再発行」をすると、その事業所は新しいパスワードでログインし直しになります（全端末で再ログインが必要）。</div>
     </div>
@@ -331,11 +331,38 @@ async function refreshFacilities() {
   const r = await api({ action: 'adminListFacilities' });
   if (r.status !== 'ok') { handleApiError(r); return; }
   const table = document.getElementById('facilityTable');
-  table.innerHTML = '<tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>状態</th><th>操作</th></tr>';
+  table.innerHTML = '<tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>';
   r.facilities.forEach(f => {
     const tr = document.createElement('tr');
-    const statusCell = `<td class="${f.active ? 'status-active' : 'status-stopped'}">${f.active ? '有効' : '停止'}</td>`;
-    tr.innerHTML = `<td>${f.facilityId}</td><td>${escapeHtml(f.name)}</td><td>${escapeHtml(f.corpName)}</td>${statusCell}`;
+    tr.innerHTML = `<td>${f.facilityId}</td><td>${escapeHtml(f.name)}</td><td>${escapeHtml(f.corpName)}</td>`;
+
+    // パスワード列（覗き見防止のため「表示」で開示）
+    const pwTd = document.createElement('td');
+    if (f.password) {
+      const pwSpan = document.createElement('span');
+      pwSpan.style.cssText = 'font-family:monospace;font-weight:700;margin-right:8px;';
+      pwSpan.textContent = '••••••••';
+      const pwBtn = document.createElement('button');
+      pwBtn.className = 'btn btn-sm btn-gray';
+      pwBtn.textContent = '表示';
+      let shown = false;
+      pwBtn.onclick = () => {
+        shown = !shown;
+        pwSpan.textContent = shown ? f.password : '••••••••';
+        pwBtn.textContent = shown ? '隠す' : '表示';
+      };
+      pwTd.appendChild(pwSpan);
+      pwTd.appendChild(pwBtn);
+    } else {
+      pwTd.innerHTML = '<span style="color:#9ca3af;font-size:0.8rem;">再発行で表示されます</span>';
+    }
+    tr.appendChild(pwTd);
+
+    const statusTd = document.createElement('td');
+    statusTd.className = f.active ? 'status-active' : 'status-stopped';
+    statusTd.textContent = f.active ? '有効' : '停止';
+    tr.appendChild(statusTd);
+
     const opTd = document.createElement('td');
 
     const toggleBtn = document.createElement('button');
@@ -368,7 +395,7 @@ async function refreshFacilities() {
   });
   if (r.facilities.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="5" style="text-align:center;color:#9ca3af;">まだ事業所がありません。</td>';
+    tr.innerHTML = '<td colspan="6" style="text-align:center;color:#9ca3af;">まだ事業所がありません。</td>';
     table.appendChild(tr);
   }
 }

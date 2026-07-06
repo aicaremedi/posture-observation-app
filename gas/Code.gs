@@ -76,7 +76,12 @@ function getSystemSS() {
   const root = getOrCreateRootFolder();
   const ss = getOrCreateSpreadsheet(root, SYSTEM_SS_NAME);
   ensureSheet(ss, '法人', ['法人ID', '法人名', '状態', '作成日']);
-  ensureSheet(ss, '事業所', ['事業所ID', '事業所名', '法人ID', 'パスワードハッシュ', 'ソルト', '状態', '作成日']);
+  const fSheet = ensureSheet(ss, '事業所',
+    ['事業所ID', '事業所名', '法人ID', 'パスワードハッシュ', 'ソルト', '状態', '作成日', 'パスワード']);
+  // 既存シートに「パスワード」列がない場合は追加（後方互換）
+  if (String(fSheet.getRange(1, 8).getValue()) !== 'パスワード') {
+    fSheet.getRange(1, 8).setValue('パスワード').setFontWeight('bold');
+  }
   ensureSheet(ss, '設定', ['キー', '値']);
   return ss;
 }
@@ -210,7 +215,8 @@ function adminListFacilities(p) {
       name: String(r[1]),
       corpId: String(r[2]),
       corpName: corps[String(r[2])] || '',
-      active: String(r[5]) === '有効'
+      active: String(r[5]) === '有効',
+      password: String(r[7] || '')
     };
   });
   if (p.corpId) list = list.filter(function(f) { return f.corpId === String(p.corpId); });
@@ -236,7 +242,7 @@ function adminAddFacility(p) {
 
   const password = randomPassword();
   const salt = randomToken();
-  sheet.appendRow([facilityId, name, corpId, sha256hex(salt + password), salt, '有効', new Date()]);
+  sheet.appendRow([facilityId, name, corpId, sha256hex(salt + password), salt, '有効', new Date(), password]);
 
   // 法人フォルダ/事業所フォルダを自動生成
   const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), String(corpRow[1]));
@@ -269,6 +275,7 @@ function adminResetPassword(p) {
       const salt = randomToken();
       sheet.getRange(i + 2, 4).setValue(sha256hex(salt + password));
       sheet.getRange(i + 2, 5).setValue(salt);
+      sheet.getRange(i + 2, 8).setValue(password);
       return { status: 'ok', facilityId: String(p.facilityId), password: password };
     }
   }
