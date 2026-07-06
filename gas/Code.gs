@@ -31,6 +31,9 @@ function doPost(e) {
       case 'saveMeasurement':
         result = saveMeasurement(payload);
         break;
+      case 'saveAnnotation':
+        result = saveAnnotation(payload);
+        break;
       default:
         result = { status: 'error', message: '不明なaction: ' + payload.action };
     }
@@ -108,6 +111,42 @@ function saveMeasurement(payload) {
   ]);
 
   return { status: 'ok' };
+}
+
+/**
+ * セラピスト助言（コメント＋マーカー描画済み画像）を保存
+ * - 画像: 利用者フォルダ内「セラピスト助言」に保存
+ * - コメント: 「助言記録」スプレッドシートに追記
+ */
+function saveAnnotation(payload) {
+  const userFolder = getOrCreateUserFolder(payload.user);
+
+  // マーカー描画済み画像（あれば）
+  let imageUrl = '';
+  if (payload.dataBase64) {
+    const annoFolder = getOrCreateFolder(userFolder, 'セラピスト助言');
+    const bytes = Utilities.base64Decode(payload.dataBase64);
+    const blob = Utilities.newBlob(bytes, 'image/png', payload.filename);
+    const file = annoFolder.createFile(blob);
+    imageUrl = file.getUrl();
+  }
+
+  // コメントをスプレッドシートに追記
+  const ss = getOrCreateSpreadsheet(userFolder, '助言記録');
+  const sheet = ss.getSheets()[0];
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['助言日時', '対象記録の撮影日時', 'テンプレート', 'コメント', '画像URL']);
+    sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  }
+  sheet.appendRow([
+    new Date(payload.timestamp),
+    payload.recordTimestamp ? new Date(payload.recordTimestamp) : '',
+    payload.template || '',
+    payload.comment || '',
+    imageUrl
+  ]);
+
+  return { status: 'ok', imageUrl: imageUrl };
 }
 
 /**

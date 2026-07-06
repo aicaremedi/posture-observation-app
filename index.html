@@ -502,6 +502,86 @@ body {
   z-index: 2;
 }
 
+/* ===== ANNOTATION SCREEN ===== */
+#annotationScreen { background: var(--gray-50); color: var(--gray-800); }
+.anno-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+#annoCanvas {
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+.anno-main video { max-width: 100%; max-height: 100%; }
+.anno-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #fff;
+  border-top: 1px solid var(--gray-200);
+  overflow-x: auto;
+}
+.anno-tools .tool-label { font-size: 0.8rem; color: var(--gray-600); white-space: nowrap; }
+.color-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.color-btn.selected { border-color: var(--gray-900); }
+.anno-tool-btn {
+  border: 1px solid var(--gray-200);
+  background: var(--gray-100);
+  color: var(--gray-800);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.anno-comment {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid var(--gray-200);
+}
+.anno-comment textarea {
+  flex: 1;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: none;
+  height: 64px;
+}
+.anno-comment button {
+  border: none;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0 22px;
+  cursor: pointer;
+}
+.h-btn.anno { background: var(--accent-light); color: var(--accent); }
+.h-comment-mark { font-size: 0.72rem; color: var(--warning); font-weight: 600; }
+
 /* ===== SETTINGS MODAL ===== */
 .modal-overlay {
   display: none;
@@ -695,6 +775,29 @@ body {
     <div class="screen-title" style="color:#fff;">前後比較</div>
   </div>
   <div class="compare-grid" id="compareGrid"></div>
+</div>
+
+<!-- ===== ANNOTATION SCREEN ===== -->
+<div id="annotationScreen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="closeAnnotation()">←</button>
+    <div class="screen-title" id="annoTitle">記録の表示・助言</div>
+  </div>
+  <div class="anno-main" id="annoMain">
+    <canvas id="annoCanvas"></canvas>
+  </div>
+  <div class="anno-tools" id="annoTools">
+    <span class="tool-label">マーカー:</span>
+    <button class="color-btn selected" style="background:#ef4444" data-color="#ef4444" onclick="selectAnnoColor(this)"></button>
+    <button class="color-btn" style="background:#3b82f6" data-color="#3b82f6" onclick="selectAnnoColor(this)"></button>
+    <button class="color-btn" style="background:#fbbf24" data-color="#fbbf24" onclick="selectAnnoColor(this)"></button>
+    <button class="anno-tool-btn" onclick="undoAnnoStroke()">↩ 元に戻す</button>
+    <button class="anno-tool-btn" onclick="clearAnnoStrokes()">🗑 全消去</button>
+  </div>
+  <div class="anno-comment">
+    <textarea id="annoComment" placeholder="セラピストの助言・観察メモを入力..."></textarea>
+    <button onclick="saveAnnotation()">保存</button>
+  </div>
 </div>
 
 <!-- ===== SETTINGS MODAL ===== -->
@@ -1754,10 +1857,12 @@ async function renderHistory() {
     info.className = 'history-info';
     const d = new Date(rec.timestamp);
     const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const hasAnno = rec.annotation && (rec.annotation.comment || (rec.annotation.strokes && rec.annotation.strokes.length > 0));
     info.innerHTML = `
       <span class="h-code">${rec.template || '─'}</span> ${rec.templateName || ''}
       <div class="h-date">${dateStr}</div>
       ${rec.uploaded ? '<div class="h-uploaded">☁ Drive保存済み</div>' : ''}
+      ${hasAnno ? '<div class="h-comment-mark">💬 助言あり</div>' : ''}
     `;
 
     const actions = document.createElement('div');
@@ -1785,6 +1890,11 @@ async function renderHistory() {
     checkLabel.appendChild(check);
     checkLabel.appendChild(document.createTextNode('比較'));
 
+    const annoBtn = document.createElement('button');
+    annoBtn.className = 'h-btn anno';
+    annoBtn.textContent = '表示・助言';
+    annoBtn.onclick = () => openAnnotation(rec.id);
+
     const delBtn = document.createElement('button');
     delBtn.className = 'h-btn del';
     delBtn.textContent = '削除';
@@ -1798,6 +1908,7 @@ async function renderHistory() {
     };
 
     actions.appendChild(checkLabel);
+    actions.appendChild(annoBtn);
     actions.appendChild(delBtn);
 
     card.appendChild(thumb);
@@ -1851,7 +1962,203 @@ async function openCompare() {
   showScreen('compareScreen');
 }
 
+// ===== ANNOTATION (セラピスト助言) =====
+let annoRecord = null;
+let annoStrokes = [];
+let annoImg = null;
+let annoColor = '#ef4444';
+let annoCurrentStroke = null;
+
+async function openAnnotation(id) {
+  const records = await dbGetAll();
+  annoRecord = records.find(r => r.id === id);
+  if (!annoRecord) return;
+
+  annoStrokes = (annoRecord.annotation && annoRecord.annotation.strokes) ? JSON.parse(JSON.stringify(annoRecord.annotation.strokes)) : [];
+  document.getElementById('annoComment').value = (annoRecord.annotation && annoRecord.annotation.comment) || '';
+
+  const d = new Date(annoRecord.timestamp);
+  document.getElementById('annoTitle').textContent =
+    `${annoRecord.template || ''} ${annoRecord.templateName || ''} ${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+
+  const main = document.getElementById('annoMain');
+  const canvas = document.getElementById('annoCanvas');
+  const existingVideo = main.querySelector('video');
+  if (existingVideo) existingVideo.remove();
+
+  if (annoRecord.type === 'image') {
+    canvas.style.display = '';
+    document.getElementById('annoTools').style.display = '';
+    annoImg = new Image();
+    annoImg.onload = () => {
+      canvas.width = annoImg.naturalWidth;
+      canvas.height = annoImg.naturalHeight;
+      redrawAnnotation();
+    };
+    annoImg.src = URL.createObjectURL(annoRecord.blob);
+  } else {
+    // 動画はコメントのみ（描画不可）
+    canvas.style.display = 'none';
+    document.getElementById('annoTools').style.display = 'none';
+    const vid = document.createElement('video');
+    vid.src = URL.createObjectURL(annoRecord.blob);
+    vid.controls = true;
+    vid.loop = true;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.autoplay = true;
+    main.appendChild(vid);
+  }
+
+  showScreen('annotationScreen');
+}
+
+function closeAnnotation() {
+  const vid = document.getElementById('annoMain').querySelector('video');
+  if (vid) { vid.pause(); vid.remove(); }
+  annoRecord = null;
+  openHistory();
+}
+
+function redrawAnnotation() {
+  const canvas = document.getElementById('annoCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (annoImg) ctx.drawImage(annoImg, 0, 0, canvas.width, canvas.height);
+
+  const drawStroke = (stroke) => {
+    if (stroke.points.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(stroke.points[0].x * canvas.width, stroke.points[0].y * canvas.height);
+    for (let i = 1; i < stroke.points.length; i++) {
+      ctx.lineTo(stroke.points[i].x * canvas.width, stroke.points[i].y * canvas.height);
+    }
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = Math.max(3, canvas.width / 250);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  };
+  annoStrokes.forEach(drawStroke);
+  if (annoCurrentStroke) drawStroke(annoCurrentStroke);
+}
+
+function annoPointFromEvent(e) {
+  const canvas = document.getElementById('annoCanvas');
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / rect.width,
+    y: (e.clientY - rect.top) / rect.height,
+  };
+}
+
+function setupAnnoCanvasEvents() {
+  const canvas = document.getElementById('annoCanvas');
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!annoRecord || annoRecord.type !== 'image') return;
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    annoCurrentStroke = { color: annoColor, points: [annoPointFromEvent(e)] };
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!annoCurrentStroke) return;
+    e.preventDefault();
+    annoCurrentStroke.points.push(annoPointFromEvent(e));
+    redrawAnnotation();
+  });
+  const finish = (e) => {
+    if (!annoCurrentStroke) return;
+    if (annoCurrentStroke.points.length >= 2) annoStrokes.push(annoCurrentStroke);
+    annoCurrentStroke = null;
+    redrawAnnotation();
+  };
+  canvas.addEventListener('pointerup', finish);
+  canvas.addEventListener('pointercancel', finish);
+}
+
+function selectAnnoColor(btn) {
+  annoColor = btn.dataset.color;
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function undoAnnoStroke() {
+  annoStrokes.pop();
+  redrawAnnotation();
+}
+
+function clearAnnoStrokes() {
+  annoStrokes = [];
+  redrawAnnotation();
+}
+
+async function saveAnnotation() {
+  if (!annoRecord) return;
+  const comment = document.getElementById('annoComment').value.trim();
+  annoRecord.annotation = {
+    strokes: annoStrokes,
+    comment,
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    await dbPut(annoRecord);
+    let msg = '助言を保存しました';
+
+    const settings = getSettings();
+    if (settings.gasUrl && (comment || annoStrokes.length > 0)) {
+      showToast('Google Driveに送信中...');
+      try {
+        await uploadAnnotationToGas(annoRecord);
+        msg = '助言をGoogle Driveに保存しました ✓';
+      } catch (err) {
+        console.error('Annotation upload error:', err);
+        msg = '助言を保存（Drive送信は失敗）';
+      }
+    }
+    showToast(msg);
+    closeAnnotation();
+  } catch (err) {
+    console.error('Annotation save error:', err);
+    showToast('保存に失敗しました');
+  }
+}
+
+async function uploadAnnotationToGas(record) {
+  const settings = getSettings();
+  if (!settings.gasUrl) throw new Error('GAS URL not configured');
+
+  // マーカー描画済みの合成画像を生成（画像記録の場合のみ）
+  let dataBase64 = null;
+  if (record.type === 'image' && annoImg) {
+    redrawAnnotation();
+    const canvas = document.getElementById('annoCanvas');
+    dataBase64 = canvas.toDataURL('image/png').split(',')[1];
+  }
+
+  const ts = record.timestamp.replace(/[:.]/g, '-');
+  const payload = {
+    action: 'saveAnnotation',
+    user: settings.userName || '未設定',
+    template: record.template || '',
+    comment: record.annotation.comment,
+    filename: `${ts}_${record.template || ''}_助言.png`,
+    dataBase64,
+    timestamp: new Date().toISOString(),
+    recordTimestamp: record.timestamp,
+  };
+
+  const res = await fetch(settings.gasUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+  const result = await res.json();
+  if (result.status !== 'ok') throw new Error(result.message || 'GAS error');
+  return result;
+}
+
 // ===== INIT =====
+setupAnnoCanvasEvents();
 renderTemplates();
 </script>
 </body>
