@@ -1,86 +1,333 @@
 /**
- * 姿勢観察支援アプリ ─ Google Apps Script バックエンド
+ * 姿勢観察支援アプリ ─ Google Apps Script バックエンド v2
+ *
+ * アカウント体系:
+ *   システムアカウント（AI Care Medi）→ 法人 → 事業所 → 利用者
  *
  * 機能:
- *  - doPost: アプリからのデータ受信（画像/動画/骨格JSON/測定値）
- *  - Google Driveへの自動保存（利用者別・カテゴリ別フォルダ）
- *  - 測定値のスプレッドシート自動追記
- *  - cleanupOldVideos: 3ヶ月より古い動画の自動削除（トリガーで毎日実行）
+ *  - 事業所ログイン認証（事業所ID + パスワード → トークン発行）
+ *  - システム管理API（法人・事業所の発行/停止/パスワード再発行）
+ *  - Google Driveへの自動保存（法人/事業所/利用者/カテゴリ別フォルダ）
+ *  - 評価表ページ配信（?page=report&fid=..&user=..&key=..）
+ *  - cleanupOldVideos: 90日より古い動画の自動削除（日次トリガー）
  *
- * デプロイ方法は docs/GAS設定手順.md を参照。
+ * 管理DB: マイドライブ >「姿勢観察アプリデータ」>「_システム管理」スプレッドシート
+ *   - 法人シート / 事業所シート / 設定シート（システム管理者パスワード）
  */
 
-// ルートフォルダ名（Google Driveのマイドライブ直下に自動作成される）
 const ROOT_FOLDER_NAME = '姿勢観察アプリデータ';
-
-// 動画の保存期間（日数）。これより古いWebM動画は cleanupOldVideos で削除される
 const VIDEO_RETENTION_DAYS = 90;
+const SYSTEM_SS_NAME = '_システム管理';
+const TOKEN_SALT = 'posture-app-token-v2';
 
-/**
- * アプリからのPOSTリクエストを受け取るエントリポイント
- */
+// ===== エントリポイント =====
+
 function doPost(e) {
   try {
-    const payload = JSON.parse(e.postData.contents);
-
-    let result;
-    switch (payload.action) {
-      case 'saveFile':
-        result = saveFile(payload);
-        break;
-      case 'saveMeasurement':
-        result = saveMeasurement(payload);
-        break;
-      case 'saveAnnotation':
-        result = saveAnnotation(payload);
-        break;
-      case 'listUsers':
-        result = listUsers();
-        break;
-      case 'addUser':
-        result = addUser(payload);
-        break;
-      case 'listRecords':
-        result = listRecords(payload);
-        break;
-      case 'getFileData':
-        result = getFileData(payload);
-        break;
-      default:
-        result = { status: 'error', message: '不明なaction: ' + payload.action };
+    const p = JSON.parse(e.postData.contents);
+    let r;
+    switch (p.action) {
+      // 認証不要
+      case 'adminInit': r = adminInit(p); break;
+      case 'adminLogin': r = adminLogin(p); break;
+      case 'login': r = facilityLogin(p); break;
+      // システム管理者専用
+      case 'adminListCorps': r = withAdmin(p, adminListCorps); break;
+      case 'adminAddCorp': r = withAdmin(p, adminAddCorp); break;
+      case 'adminListFacilities': r = withAdmin(p, adminListFacilities); break;
+      case 'adminAddFacility': r = withAdmin(p, adminAddFacility); break;
+      case 'adminSetFacilityStatus': r = withAdmin(p, adminSetFacilityStatus); break;
+      case 'adminResetPassword': r = withAdmin(p, adminResetPassword); break;
+      // 事業所（要ログイン）
+      case 'listUsers': r = withFacility(p, apiListUsers); break;
+      case 'addUser': r = withFacility(p, apiAddUser); break;
+      case 'listRecords': r = withFacility(p, apiListRecords); break;
+      case 'getFileData': r = withFacility(p, apiGetFileData); break;
+      case 'saveFile': r = withFacility(p, apiSaveFile); break;
+      case 'saveMeasurement': r = withFacility(p, apiSaveMeasurement); break;
+      case 'saveAnnotation': r = withFacility(p, apiSaveAnnotation); break;
+      default: r = { status: 'error', message: '不明なaction: ' + p.action };
     }
-
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonOut(r);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error',
-      message: String(err)
-    })).setMimeType(ContentService.MimeType.JSON);
+    return jsonOut({ status: 'error', message: String(err) });
   }
 }
 
-/**
- * GETリクエスト:
- *  - ?page=report&user=名前&key=トークン → 評価表ページ（家族・ケアマネ閲覧用）
- *  - それ以外 → 動作確認用のステータスJSON
- */
 function doGet(e) {
   if (e && e.parameter && e.parameter.page === 'report') {
-    return renderReport(e.parameter.user, e.parameter.key);
+    return renderReport(e.parameter.fid, e.parameter.user, e.parameter.key);
   }
-  return ContentService.createTextOutput(JSON.stringify({
+  return jsonOut({
     status: 'ok',
-    app: '姿勢観察支援アプリ バックエンド',
+    app: '姿勢観察支援アプリ バックエンド v2',
     time: new Date().toISOString()
-  })).setMimeType(ContentService.MimeType.JSON);
+  });
 }
 
-// ===== 利用者管理 =====
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
-function getUsersSheet() {
+// ===== システム管理DB =====
+
+function getSystemSS() {
   const root = getOrCreateRootFolder();
-  const ss = getOrCreateSpreadsheet(root, '利用者一覧');
+  const ss = getOrCreateSpreadsheet(root, SYSTEM_SS_NAME);
+  ensureSheet(ss, '法人', ['法人ID', '法人名', '状態', '作成日']);
+  ensureSheet(ss, '事業所', ['事業所ID', '事業所名', '法人ID', 'パスワードハッシュ', 'ソルト', '状態', '作成日']);
+  ensureSheet(ss, '設定', ['キー', '値']);
+  return ss;
+}
+
+function ensureSheet(ss, name, headers) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  }
+  return sheet;
+}
+
+function sheetRows(sheet) {
+  const last = sheet.getLastRow();
+  if (last < 2) return [];
+  return sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+}
+
+function getSetting(key) {
+  const sheet = getSystemSS().getSheetByName('設定');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === key) return String(rows[i][1]);
+  }
+  return null;
+}
+
+function setSetting(key, value) {
+  const sheet = getSystemSS().getSheetByName('設定');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === key) { sheet.getRange(i + 2, 2).setValue(value); return; }
+  }
+  sheet.appendRow([key, value]);
+}
+
+// ===== ハッシュ・トークン =====
+
+function sha256hex(text) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8)
+    .map(function(b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+function randomToken() { return Utilities.getUuid().replace(/-/g, ''); }
+
+function randomPassword() {
+  // 紛らわしい文字（l,1,o,0,i）を除いた8文字
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  var pw = '';
+  for (var i = 0; i < 8; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+  return pw;
+}
+
+function facilityTokenFor(facilityId, passwordHash) {
+  return sha256hex(facilityId + ':' + passwordHash + ':' + TOKEN_SALT);
+}
+
+// ===== システム管理者認証 =====
+
+function adminInit(p) {
+  if (getSetting('adminHash')) return { status: 'error', message: 'システムパスワードは設定済みです' };
+  const pw = String(p.password || '');
+  if (pw.length < 8) return { status: 'error', message: 'パスワードは8文字以上にしてください' };
+  const salt = randomToken();
+  setSetting('adminSalt', salt);
+  setSetting('adminHash', sha256hex(salt + pw));
+  return { status: 'ok', adminToken: adminTokenNow() };
+}
+
+function adminLogin(p) {
+  const hash = getSetting('adminHash');
+  const salt = getSetting('adminSalt');
+  if (!hash) return { status: 'error', code: 'NOINIT', message: '初期設定が必要です' };
+  if (sha256hex(salt + String(p.password || '')) !== hash) {
+    return { status: 'error', message: 'パスワードが違います' };
+  }
+  return { status: 'ok', adminToken: adminTokenNow() };
+}
+
+function adminTokenNow() {
+  return sha256hex('admin:' + getSetting('adminHash') + ':' + TOKEN_SALT);
+}
+
+function withAdmin(p, fn) {
+  if (!getSetting('adminHash') || String(p.adminToken || '') !== adminTokenNow()) {
+    return { status: 'error', code: 'AUTH', message: '管理者認証エラー。再ログインしてください' };
+  }
+  return fn(p);
+}
+
+// ===== 法人・事業所管理（システム管理者） =====
+
+function adminListCorps(p) {
+  const rows = sheetRows(getSystemSS().getSheetByName('法人'));
+  return {
+    status: 'ok',
+    corps: rows.map(function(r) {
+      return { corpId: String(r[0]), name: String(r[1]), active: String(r[2]) === '有効' };
+    })
+  };
+}
+
+function adminAddCorp(p) {
+  const name = String(p.name || '').trim();
+  if (!name) return { status: 'error', message: '法人名が空です' };
+  const sheet = getSystemSS().getSheetByName('法人');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][1]) === name) return { status: 'error', message: '同名の法人が既に存在します' };
+  }
+  var maxNum = 0;
+  rows.forEach(function(r) {
+    const m = String(r[0]).match(/^C(\d+)$/);
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+  });
+  const corpId = 'C' + ('000' + (maxNum + 1)).slice(-3);
+  sheet.appendRow([corpId, name, '有効', new Date()]);
+  getOrCreateFolderIn(getOrCreateRootFolder(), name);
+  return { status: 'ok', corp: { corpId: corpId, name: name } };
+}
+
+function adminListFacilities(p) {
+  const rows = sheetRows(getSystemSS().getSheetByName('事業所'));
+  const corps = {};
+  sheetRows(getSystemSS().getSheetByName('法人')).forEach(function(r) { corps[String(r[0])] = String(r[1]); });
+  var list = rows.map(function(r) {
+    return {
+      facilityId: String(r[0]),
+      name: String(r[1]),
+      corpId: String(r[2]),
+      corpName: corps[String(r[2])] || '',
+      active: String(r[5]) === '有効'
+    };
+  });
+  if (p.corpId) list = list.filter(function(f) { return f.corpId === String(p.corpId); });
+  return { status: 'ok', facilities: list };
+}
+
+function adminAddFacility(p) {
+  const corpId = String(p.corpId || '').trim();
+  const name = String(p.name || '').trim();
+  if (!corpId || !name) return { status: 'error', message: '法人IDと事業所名を指定してください' };
+
+  const corpRow = findCorp(corpId);
+  if (!corpRow) return { status: 'error', message: '法人が見つかりません: ' + corpId };
+
+  const sheet = getSystemSS().getSheetByName('事業所');
+  const rows = sheetRows(sheet);
+  const existingIds = {};
+  rows.forEach(function(r) { existingIds[String(r[0])] = true; });
+
+  var facilityId;
+  do { facilityId = 'F' + ('0000' + Math.floor(Math.random() * 10000)).slice(-4); }
+  while (existingIds[facilityId]);
+
+  const password = randomPassword();
+  const salt = randomToken();
+  sheet.appendRow([facilityId, name, corpId, sha256hex(salt + password), salt, '有効', new Date()]);
+
+  // 法人フォルダ/事業所フォルダを自動生成
+  const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), String(corpRow[1]));
+  getOrCreateFolderIn(corpFolder, name);
+
+  return {
+    status: 'ok',
+    facility: { facilityId: facilityId, password: password, name: name, corpId: corpId, corpName: String(corpRow[1]) }
+  };
+}
+
+function adminSetFacilityStatus(p) {
+  const sheet = getSystemSS().getSheetByName('事業所');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(p.facilityId)) {
+      sheet.getRange(i + 2, 6).setValue(p.active ? '有効' : '停止');
+      return { status: 'ok' };
+    }
+  }
+  return { status: 'error', message: '事業所が見つかりません' };
+}
+
+function adminResetPassword(p) {
+  const sheet = getSystemSS().getSheetByName('事業所');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(p.facilityId)) {
+      const password = randomPassword();
+      const salt = randomToken();
+      sheet.getRange(i + 2, 4).setValue(sha256hex(salt + password));
+      sheet.getRange(i + 2, 5).setValue(salt);
+      return { status: 'ok', facilityId: String(p.facilityId), password: password };
+    }
+  }
+  return { status: 'error', message: '事業所が見つかりません' };
+}
+
+function findCorp(corpId) {
+  const rows = sheetRows(getSystemSS().getSheetByName('法人'));
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === corpId) return rows[i];
+  }
+  return null;
+}
+
+function findFacility(facilityId) {
+  const rows = sheetRows(getSystemSS().getSheetByName('事業所'));
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(facilityId)) return rows[i];
+  }
+  return null;
+}
+
+// ===== 事業所ログイン =====
+
+function facilityLogin(p) {
+  const row = findFacility(p.facilityId);
+  if (!row) return { status: 'error', message: '事業所IDまたはパスワードが違います' };
+  if (String(row[5]) !== '有効') return { status: 'error', message: 'このアカウントは停止中です。管理者にお問い合わせください' };
+  const hash = sha256hex(String(row[4]) + String(p.password || ''));
+  if (hash !== String(row[3])) return { status: 'error', message: '事業所IDまたはパスワードが違います' };
+
+  const corp = findCorp(String(row[2]));
+  return {
+    status: 'ok',
+    session: {
+      facilityId: String(row[0]),
+      facilityName: String(row[1]),
+      corpName: corp ? String(corp[1]) : '',
+      token: facilityTokenFor(String(row[0]), String(row[3]))
+    }
+  };
+}
+
+function withFacility(p, fn) {
+  const row = findFacility(p.facilityId);
+  if (!row || String(row[5]) !== '有効' ||
+      String(p.token || '') !== facilityTokenFor(String(row[0]), String(row[3]))) {
+    return { status: 'error', code: 'AUTH', message: '認証エラー。再ログインしてください' };
+  }
+  const corp = findCorp(String(row[2]));
+  const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), corp ? String(corp[1]) : '不明法人');
+  const facilityFolder = getOrCreateFolderIn(corpFolder, String(row[1]));
+  return fn(p, { folder: facilityFolder, facilityId: String(row[0]), facilityName: String(row[1]) });
+}
+
+// ===== 利用者管理（事業所スコープ） =====
+
+function getUsersSheetIn(facilityFolder) {
+  const ss = getOrCreateSpreadsheet(facilityFolder, '利用者一覧');
   const sheet = ss.getSheets()[0];
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(['利用者名', 'トークン', '作成日']);
@@ -89,44 +336,94 @@ function getUsersSheet() {
   return sheet;
 }
 
-function listUsers() {
-  const sheet = getUsersSheet();
-  const last = sheet.getLastRow();
+function apiListUsers(p, ctx) {
+  const rows = sheetRows(getUsersSheetIn(ctx.folder));
   const users = [];
-  if (last >= 2) {
-    const values = sheet.getRange(2, 1, last - 1, 2).getValues();
-    values.forEach(function(row) {
-      if (row[0]) users.push({ name: String(row[0]), token: String(row[1]) });
-    });
-  }
+  rows.forEach(function(r) {
+    if (r[0]) users.push({ name: String(r[0]), token: String(r[1]) });
+  });
   return { status: 'ok', users: users };
 }
 
-function addUser(payload) {
-  const name = String(payload.name || '').trim();
+function apiAddUser(p, ctx) {
+  const name = String(p.name || '').trim();
   if (!name) return { status: 'error', message: '利用者名が空です' };
 
-  const existing = listUsers().users;
+  const existing = apiListUsers(p, ctx).users;
   for (var i = 0; i < existing.length; i++) {
     if (existing[i].name === name) return { status: 'ok', user: existing[i], existed: true };
   }
 
-  const token = Utilities.getUuid().replace(/-/g, '');
-  getUsersSheet().appendRow([name, token, new Date()]);
-  getOrCreateUserFolder(name);
+  const token = randomToken();
+  getUsersSheetIn(ctx.folder).appendRow([name, token, new Date()]);
+  getOrCreateFolderIn(ctx.folder, name);
   return { status: 'ok', user: { name: name, token: token } };
 }
 
-// ===== クラウド記録一覧・取得 =====
+// ===== 記録の保存・取得（事業所スコープ） =====
 
-function listRecords(payload) {
-  const user = String(payload.user || '').trim();
-  if (!user) return { status: 'error', message: '利用者名が空です' };
+function apiSaveFile(p, ctx) {
+  const userFolder = getOrCreateFolderIn(ctx.folder, String(p.user || '未設定'));
+  const categoryFolder = getOrCreateFolderIn(userFolder, categoryFromTemplate(p.template));
 
-  const root = getOrCreateRootFolder();
-  const it = root.getFoldersByName(user);
-  if (!it.hasNext()) return { status: 'ok', records: [] };
-  const userFolder = it.next();
+  const bytes = Utilities.base64Decode(p.dataBase64);
+  const blob = Utilities.newBlob(bytes, p.mimeType, p.filename);
+  const file = categoryFolder.createFile(blob);
+
+  var skeletonUrl = null;
+  if (p.skeleton) {
+    const jsonName = p.filename.replace(/\.(png|webm)$/, '') + '_skeleton.json';
+    const jsonBlob = Utilities.newBlob(JSON.stringify(p.skeleton, null, 2), 'application/json', jsonName);
+    skeletonUrl = categoryFolder.createFile(jsonBlob).getUrl();
+  }
+  return { status: 'ok', fileUrl: file.getUrl(), skeletonUrl: skeletonUrl };
+}
+
+function apiSaveMeasurement(p, ctx) {
+  const userFolder = getOrCreateFolderIn(ctx.folder, String(p.user || '未設定'));
+  const ss = getOrCreateSpreadsheet(userFolder, '測定データ');
+  const sheet = ss.getSheets()[0];
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['日時', '項目', '値', '補足']);
+    sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+  }
+  sheet.appendRow([new Date(p.timestamp), p.item, p.value, p.extra || '']);
+  return { status: 'ok' };
+}
+
+function apiSaveAnnotation(p, ctx) {
+  const userFolder = getOrCreateFolderIn(ctx.folder, String(p.user || '未設定'));
+
+  var imageUrl = '';
+  if (p.dataBase64) {
+    const annoFolder = getOrCreateFolderIn(userFolder, 'セラピスト助言');
+    const bytes = Utilities.base64Decode(p.dataBase64);
+    imageUrl = annoFolder.createFile(Utilities.newBlob(bytes, 'image/png', p.filename)).getUrl();
+  }
+
+  const ss = getOrCreateSpreadsheet(userFolder, '助言記録');
+  const sheet = ss.getSheets()[0];
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['助言日時', '対象記録の撮影日時', 'テンプレート', 'コメント', '画像URL']);
+    sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  }
+  sheet.appendRow([
+    new Date(p.timestamp),
+    p.recordTimestamp ? new Date(p.recordTimestamp) : '',
+    p.template || '', p.comment || '', imageUrl
+  ]);
+  return { status: 'ok', imageUrl: imageUrl };
+}
+
+function apiListRecords(p, ctx) {
+  return { status: 'ok', records: listRecordsIn(ctx.folder, String(p.user || '')) };
+}
+
+function listRecordsIn(facilityFolder, user) {
+  if (!user) return [];
+  const uit = facilityFolder.getFoldersByName(user);
+  if (!uit.hasNext()) return [];
+  const userFolder = uit.next();
 
   const categories = ['姿勢観察', '動作観察', '簡易検査', 'セラピスト助言'];
   const records = [];
@@ -137,23 +434,19 @@ function listRecords(payload) {
     while (files.hasNext()) {
       const f = files.next();
       records.push({
-        id: f.getId(),
-        name: f.getName(),
-        category: cat,
-        mimeType: f.getMimeType(),
-        date: f.getDateCreated().toISOString(),
-        size: f.getSize(),
-        url: f.getUrl()
+        id: f.getId(), name: f.getName(), category: cat,
+        mimeType: f.getMimeType(), date: f.getDateCreated().toISOString(),
+        size: f.getSize(), url: f.getUrl()
       });
     }
   });
   records.sort(function(a, b) { return a.date < b.date ? 1 : -1; });
-  return { status: 'ok', records: records.slice(0, 100) };
+  return records.slice(0, 100);
 }
 
-function getFileData(payload) {
-  const file = DriveApp.getFileById(String(payload.fileId));
-  if (!isInsideRootFolder(file)) {
+function apiGetFileData(p, ctx) {
+  const file = DriveApp.getFileById(String(p.fileId));
+  if (!isInsideFolder(file, ctx.folder)) {
     return { status: 'error', message: 'アクセスできないファイルです' };
   }
   if (file.getSize() > 25 * 1024 * 1024) {
@@ -168,13 +461,14 @@ function getFileData(payload) {
   };
 }
 
-/** アプリのルートフォルダ配下のファイルかを確認（他ファイルへのアクセスを防ぐ） */
-function isInsideRootFolder(file) {
+/** ファイルが指定フォルダ配下にあるか（他事業所のデータへのアクセスを防ぐ） */
+function isInsideFolder(file, targetFolder) {
+  const targetId = targetFolder.getId();
   var parents = file.getParents();
   var current = parents.hasNext() ? parents.next() : null;
   var depth = 0;
   while (current && depth < 10) {
-    if (current.getName() === ROOT_FOLDER_NAME) return true;
+    if (current.getId() === targetId) return true;
     var p = current.getParents();
     current = p.hasNext() ? p.next() : null;
     depth++;
@@ -184,59 +478,57 @@ function isInsideRootFolder(file) {
 
 // ===== 評価表ページ（家族・ケアマネ閲覧用） =====
 
-function renderReport(user, key) {
+function renderReport(fid, user, key) {
+  fid = String(fid || '');
   user = String(user || '');
   key = String(key || '');
 
-  // トークン検証
-  var valid = false;
-  const users = listUsers().users;
-  for (var i = 0; i < users.length; i++) {
-    if (users[i].name === user && users[i].token === key && key.length > 10) { valid = true; break; }
-  }
-  if (!valid) {
-    return HtmlService.createHtmlOutput(
-      '<div style="font-family:sans-serif;text-align:center;padding:48px;">' +
-      '<h3>リンクが無効です</h3><p>QRコードを再度読み込むか、施設にお問い合わせください。</p></div>');
-  }
+  const invalid = HtmlService.createHtmlOutput(
+    '<div style="font-family:sans-serif;text-align:center;padding:48px;">' +
+    '<h3>リンクが無効です</h3><p>QRコードを再度読み込むか、施設にお問い合わせください。</p></div>');
 
-  const root = getOrCreateRootFolder();
-  const uit = root.getFoldersByName(user);
+  const row = findFacility(fid);
+  if (!row || String(row[5]) !== '有効') return invalid;
+  const corp = findCorp(String(row[2]));
+  const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), corp ? String(corp[1]) : '不明法人');
+  const facilityFolder = getOrCreateFolderIn(corpFolder, String(row[1]));
+
+  // 利用者トークン検証
+  var valid = false;
+  sheetRows(getUsersSheetIn(facilityFolder)).forEach(function(r) {
+    if (String(r[0]) === user && String(r[1]) === key && key.length > 10) valid = true;
+  });
+  if (!valid) return invalid;
+
+  const uit = facilityFolder.getFoldersByName(user);
   const userFolder = uit.hasNext() ? uit.next() : null;
 
-  // 最新の写真（棒人間付きスクショ・助言画像）最大6枚
+  // 最新の写真 最大6枚
   var imgHtml = '';
-  if (userFolder) {
-    const recs = listRecords({ user: user }).records
-      .filter(function(r) { return r.mimeType === 'image/png'; })
-      .slice(0, 6);
-    recs.forEach(function(r) {
+  listRecordsIn(facilityFolder, user)
+    .filter(function(r) { return r.mimeType === 'image/png'; })
+    .slice(0, 6)
+    .forEach(function(r) {
       try {
         const f = DriveApp.getFileById(r.id);
         const b64 = Utilities.base64Encode(f.getBlob().getBytes());
         const d = new Date(r.date);
         const dateStr = d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
-        imgHtml +=
-          '<div class="photo"><img src="data:image/png;base64,' + b64 + '">' +
+        imgHtml += '<div class="photo"><img src="data:image/png;base64,' + b64 + '">' +
           '<div class="cap">' + escapeHtml(r.category) + ' ─ ' + dateStr + '</div></div>';
       } catch (err) { /* 1枚の失敗で全体を止めない */ }
     });
-  }
   if (!imgHtml) imgHtml = '<p class="empty">まだ写真がありません</p>';
 
-  // セラピスト助言（最新10件）
   var adviceHtml = '';
-  const adviceRows = userFolder ? readSheetRows(userFolder, '助言記録', 10) : [];
-  adviceRows.forEach(function(row) {
-    adviceHtml += '<tr><td>' + escapeHtml(row[0]) + '</td><td>' + escapeHtml(row[2]) + '</td><td>' + escapeHtml(row[3]) + '</td></tr>';
+  (userFolder ? readSheetRows(userFolder, '助言記録', 10) : []).forEach(function(r) {
+    adviceHtml += '<tr><td>' + escapeHtml(r[0]) + '</td><td>' + escapeHtml(r[2]) + '</td><td>' + escapeHtml(r[3]) + '</td></tr>';
   });
   if (!adviceHtml) adviceHtml = '<tr><td colspan="3" class="empty">まだ助言がありません</td></tr>';
 
-  // 測定値（最新10件）
   var measureHtml = '';
-  const measureRows = userFolder ? readSheetRows(userFolder, '測定データ', 10) : [];
-  measureRows.forEach(function(row) {
-    measureHtml += '<tr><td>' + escapeHtml(row[0]) + '</td><td>' + escapeHtml(row[1]) + '</td><td>' + escapeHtml(row[2]) + '</td><td>' + escapeHtml(row[3]) + '</td></tr>';
+  (userFolder ? readSheetRows(userFolder, '測定データ', 10) : []).forEach(function(r) {
+    measureHtml += '<tr><td>' + escapeHtml(r[0]) + '</td><td>' + escapeHtml(r[1]) + '</td><td>' + escapeHtml(r[2]) + '</td><td>' + escapeHtml(r[3]) + '</td></tr>';
   });
   if (!measureHtml) measureHtml = '<tr><td colspan="4" class="empty">まだ測定値がありません</td></tr>';
 
@@ -260,7 +552,8 @@ function renderReport(user, key) {
     '.footer{text-align:center;font-size:.75rem;color:#9ca3af;padding:16px;}' +
     '@media(min-width:600px){.photos{grid-template-columns:1fr 1fr 1fr;}}' +
     '</style></head><body>' +
-    '<div class="header"><h1>' + escapeHtml(user) + ' さんの評価表</h1><p>姿勢観察支援アプリ ─ ' +
+    '<div class="header"><h1>' + escapeHtml(user) + ' さんの評価表</h1><p>' +
+    escapeHtml(String(row[1])) + ' ─ ' +
     now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate() + ' 時点</p></div>' +
     '<div class="wrap">' +
     '<div class="card"><h2>📷 最近の姿勢記録</h2><div class="photos">' + imgHtml + '</div></div>' +
@@ -274,7 +567,6 @@ function renderReport(user, key) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
 }
 
-/** 利用者フォルダ内のスプレッドシートから最新maxRows行を取得（新しい順） */
 function readSheetRows(userFolder, name, maxRows) {
   const it = userFolder.getFilesByName(name);
   if (!it.hasNext()) return [];
@@ -292,123 +584,24 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-/**
- * 画像・動画・骨格JSONをGoogle Driveに保存
- */
-function saveFile(payload) {
-  const userFolder = getOrCreateUserFolder(payload.user);
-  const category = categoryFromTemplate(payload.template);
-  const categoryFolder = getOrCreateFolder(userFolder, category);
+// ===== 動画クリーンアップ（日次トリガー） =====
 
-  // メインファイル（画像 or 動画）
-  const bytes = Utilities.base64Decode(payload.dataBase64);
-  const blob = Utilities.newBlob(bytes, payload.mimeType, payload.filename);
-  const file = categoryFolder.createFile(blob);
-
-  // 骨格データJSON（画像撮影時に同時保存）
-  let skeletonUrl = null;
-  if (payload.skeleton) {
-    const jsonName = payload.filename.replace(/\.(png|webm)$/, '') + '_skeleton.json';
-    const jsonBlob = Utilities.newBlob(
-      JSON.stringify(payload.skeleton, null, 2), 'application/json', jsonName);
-    const jsonFile = categoryFolder.createFile(jsonBlob);
-    skeletonUrl = jsonFile.getUrl();
-  }
-
-  return {
-    status: 'ok',
-    fileUrl: file.getUrl(),
-    skeletonUrl: skeletonUrl
-  };
-}
-
-/**
- * 測定値（体重など）を利用者のスプレッドシートに追記
- */
-function saveMeasurement(payload) {
-  const userFolder = getOrCreateUserFolder(payload.user);
-  const ss = getOrCreateSpreadsheet(userFolder, '測定データ');
-  const sheet = ss.getSheets()[0];
-
-  // 初回はヘッダー行を作成
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['日時', '項目', '値', '補足']);
-    sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
-  }
-
-  sheet.appendRow([
-    new Date(payload.timestamp),
-    payload.item,
-    payload.value,
-    payload.extra || ''
-  ]);
-
-  return { status: 'ok' };
-}
-
-/**
- * セラピスト助言（コメント＋マーカー描画済み画像）を保存
- * - 画像: 利用者フォルダ内「セラピスト助言」に保存
- * - コメント: 「助言記録」スプレッドシートに追記
- */
-function saveAnnotation(payload) {
-  const userFolder = getOrCreateUserFolder(payload.user);
-
-  // マーカー描画済み画像（あれば）
-  let imageUrl = '';
-  if (payload.dataBase64) {
-    const annoFolder = getOrCreateFolder(userFolder, 'セラピスト助言');
-    const bytes = Utilities.base64Decode(payload.dataBase64);
-    const blob = Utilities.newBlob(bytes, 'image/png', payload.filename);
-    const file = annoFolder.createFile(blob);
-    imageUrl = file.getUrl();
-  }
-
-  // コメントをスプレッドシートに追記
-  const ss = getOrCreateSpreadsheet(userFolder, '助言記録');
-  const sheet = ss.getSheets()[0];
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['助言日時', '対象記録の撮影日時', 'テンプレート', 'コメント', '画像URL']);
-    sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
-  }
-  sheet.appendRow([
-    new Date(payload.timestamp),
-    payload.recordTimestamp ? new Date(payload.recordTimestamp) : '',
-    payload.template || '',
-    payload.comment || '',
-    imageUrl
-  ]);
-
-  return { status: 'ok', imageUrl: imageUrl };
-}
-
-/**
- * 3ヶ月より古い動画（WebM）を削除する。
- * ※時間主導型トリガーで1日1回実行するよう設定する（手順書参照）
- */
 function cleanupOldVideos() {
   const root = getOrCreateRootFolder();
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - VIDEO_RETENTION_DAYS);
-
-  let deleted = 0;
-  deleted += cleanupFolderRecursive(root, cutoff);
+  const deleted = cleanupFolderRecursive(root, cutoff);
   Logger.log('削除した動画: ' + deleted + '件');
   return deleted;
 }
 
 function cleanupFolderRecursive(folder, cutoff) {
-  let deleted = 0;
-
+  var deleted = 0;
   const files = folder.getFilesByType('video/webm');
   while (files.hasNext()) {
     const file = files.next();
-    if (file.getDateCreated() < cutoff) {
-      file.setTrashed(true);
-      deleted++;
-    }
+    if (file.getDateCreated() < cutoff) { file.setTrashed(true); deleted++; }
   }
-
   const subFolders = folder.getFolders();
   while (subFolders.hasNext()) {
     deleted += cleanupFolderRecursive(subFolders.next(), cutoff);
@@ -422,15 +615,6 @@ function getOrCreateRootFolder() {
   return getOrCreateFolderIn(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
 }
 
-function getOrCreateUserFolder(userName) {
-  const root = getOrCreateRootFolder();
-  return getOrCreateFolder(root, userName || '未設定');
-}
-
-function getOrCreateFolder(parent, name) {
-  return getOrCreateFolderIn(parent, name);
-}
-
 function getOrCreateFolderIn(parent, name) {
   const it = parent.getFoldersByName(name);
   if (it.hasNext()) return it.next();
@@ -439,18 +623,12 @@ function getOrCreateFolderIn(parent, name) {
 
 function getOrCreateSpreadsheet(folder, name) {
   const it = folder.getFilesByName(name);
-  if (it.hasNext()) {
-    return SpreadsheetApp.open(it.next());
-  }
+  if (it.hasNext()) return SpreadsheetApp.open(it.next());
   const ss = SpreadsheetApp.create(name);
-  const file = DriveApp.getFileById(ss.getId());
-  file.moveTo(folder);
+  DriveApp.getFileById(ss.getId()).moveTo(folder);
   return ss;
 }
 
-/**
- * テンプレートコードからカテゴリ名を判定
- */
 function categoryFromTemplate(code) {
   if (!code) return 'その他';
   if (code.indexOf('A') === 0) return '姿勢観察';

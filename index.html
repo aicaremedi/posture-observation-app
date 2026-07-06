@@ -628,6 +628,63 @@ body {
 .modal-save { background: var(--primary); color: #fff; }
 .modal-cancel { background: var(--gray-100); color: var(--gray-800); }
 
+/* ===== LOGIN SCREEN ===== */
+#loginScreen {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%);
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+.login-box {
+  width: 100%;
+  max-width: 380px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  padding: 28px 24px;
+}
+.login-box h2 { text-align: center; font-size: 1.3rem; margin-bottom: 4px; }
+.login-box .login-sub { text-align: center; font-size: 0.82rem; opacity: 0.7; margin-bottom: 24px; }
+.login-field { margin-bottom: 14px; }
+.login-field label { display: block; font-size: 0.82rem; opacity: 0.85; margin-bottom: 5px; }
+.login-field input {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.95);
+  color: var(--gray-900);
+  font-size: 1rem;
+}
+.login-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.login-btn:active { transform: scale(0.98); }
+.login-error {
+  color: #fca5a5;
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 12px;
+  min-height: 1.2em;
+}
+.home-facility {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  background: rgba(255,255,255,0.12);
+  padding: 6px 16px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+
 /* ===== USER SELECT ===== */
 .user-list {
   max-height: 40vh;
@@ -724,10 +781,29 @@ body {
 </head>
 <body>
 
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="screen">
+  <div class="login-box">
+    <h2>姿勢観察支援</h2>
+    <div class="login-sub">事業所アカウントでログイン</div>
+    <div class="login-field">
+      <label>事業所ID</label>
+      <input type="text" id="loginFacilityId" placeholder="例: F1234" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>パスワード</label>
+      <input type="password" id="loginPassword" placeholder="パスワード" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">ログイン</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
 <!-- ===== HOME SCREEN ===== -->
-<div id="homeScreen" class="screen active">
+<div id="homeScreen" class="screen">
   <div class="home-logo">姿勢観察支援</div>
   <div class="home-sub">棒人間表示による姿勢観察支援ツール</div>
+  <div class="home-facility" id="homeFacilityLabel"></div>
   <div class="home-buttons">
     <button class="home-btn secondary-btn" id="userSelectBtn" onclick="openUserModal()">
       <span class="icon">👤</span>
@@ -745,9 +821,9 @@ body {
       <span class="icon">🗂</span>
       <span>履歴・前後比較</span>
     </button>
-    <button class="home-btn secondary-btn" onclick="openSettings()">
-      <span class="icon">⚙️</span>
-      <span>設定</span>
+    <button class="home-btn secondary-btn" onclick="openAccountModal()">
+      <span class="icon">🏢</span>
+      <span>アカウント</span>
     </button>
   </div>
   <input type="file" id="videoFileInput" accept="video/*" style="display:none">
@@ -873,18 +949,26 @@ body {
   </div>
 </div>
 
-<!-- ===== SETTINGS MODAL ===== -->
-<div class="modal-overlay" id="settingsModal">
+<!-- ===== ACCOUNT MODAL ===== -->
+<div class="modal-overlay" id="accountModal">
   <div class="modal-box">
-    <h3>⚙️ 設定（施設共通）</h3>
+    <h3>🏢 アカウント情報</h3>
     <div class="modal-field">
-      <label>施設の保存先URL（GASウェブアプリURL）</label>
-      <input type="url" id="settingGasUrl" placeholder="https://script.google.com/macros/s/.../exec">
-      <div class="modal-hint">施設内の全端末に同じURLを設定すると、すべての記録が施設のGoogle Driveに集まります。空欄の場合は端末内のみに保存されます。</div>
+      <label>法人</label>
+      <div id="accountCorpName" style="font-size:1rem;font-weight:600;"></div>
     </div>
+    <div class="modal-field">
+      <label>事業所</label>
+      <div id="accountFacilityName" style="font-size:1rem;font-weight:600;"></div>
+    </div>
+    <div class="modal-field">
+      <label>事業所ID</label>
+      <div id="accountFacilityId" style="font-size:1rem;font-weight:600;"></div>
+    </div>
+    <div class="modal-hint">記録はこの事業所のデータ保存先（Google Drive）に自動保存されます。</div>
     <div class="modal-actions">
-      <button class="modal-cancel" onclick="closeSettings()">キャンセル</button>
-      <button class="modal-save" onclick="saveSettingsFromModal()">保存</button>
+      <button class="modal-cancel" onclick="document.getElementById('accountModal').classList.remove('visible')">閉じる</button>
+      <button class="modal-save" style="background:var(--danger);" onclick="doLogout()">ログアウト</button>
     </div>
   </div>
 </div>
@@ -1111,8 +1195,8 @@ async function showManualInputDialog(tmpl) {
   }
   const msg = `体重: ${w}kg` + (bmi ? ` / BMI: ${bmi}` : '');
 
-  if (settings.gasUrl) {
-    showToast('Google Driveに記録中...');
+  if (getSession()) {
+    showToast('保存先に記録中...');
     try {
       await uploadMeasurementToGas('体重', w, bmi ? `BMI:${bmi}` : '');
       showToast(`記録しました ✓ ${msg}`);
@@ -1121,7 +1205,7 @@ async function showManualInputDialog(tmpl) {
       showToast(`記録失敗（通信エラー）: ${msg}`);
     }
   } else {
-    showToast(`記録: ${msg}（Drive連携は未設定）`);
+    showToast(`記録: ${msg}（未ログインのため端末内のみ）`);
   }
 }
 
@@ -1707,18 +1791,17 @@ async function saveResult() {
     const id = await dbAdd(record);
     let msg = '履歴に保存しました';
 
-    const settings = getSettings();
-    if (settings.gasUrl) {
-      showToast('Google Driveにアップロード中...');
+    if (getSession()) {
+      showToast('保存先にアップロード中...');
       try {
         await uploadRecordToGas(record);
         record.id = id;
         record.uploaded = true;
         await dbPut(record);
-        msg = 'Google Driveに保存しました ✓';
+        msg = '事業所の保存先に保存しました ✓';
       } catch (err) {
         console.error('Upload error:', err);
-        msg = '履歴に保存（Drive送信は失敗。後で再送できます）';
+        msg = '履歴に保存（クラウド送信は失敗。後で再送できます）';
       }
     }
     showToast(msg);
@@ -1785,66 +1868,139 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.classList.remove('visible'), 3000);
 }
 
-// ===== SETTINGS =====
+// ===== システム接続先（全事業所共通・変更不要） =====
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfdRCRfYuPQhvl0D9EHjrXolw8IPilroU-Ky9eYKCY07-m5Ciwdla5bciAIPaa49FwRw/exec';
+
+// ===== ローカル設定（身長など端末内の補助データ） =====
 function getSettings() {
   try {
     return JSON.parse(localStorage.getItem('postureAppSettings') || '{}');
   } catch (e) { return {}; }
 }
 
-function openSettings() {
-  const s = getSettings();
-  document.getElementById('settingGasUrl').value = s.gasUrl || '';
-  document.getElementById('settingsModal').classList.add('visible');
+// ===== セッション（事業所ログイン） =====
+function getSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem('postureAppSession') || 'null');
+    return (s && s.facilityId && s.token) ? s : null;
+  } catch (e) { return null; }
 }
 
-function closeSettings() {
-  document.getElementById('settingsModal').classList.remove('visible');
+function setSession(session) {
+  localStorage.setItem('postureAppSession', JSON.stringify(session));
 }
 
-function saveSettingsFromModal() {
-  const settings = {
-    ...getSettings(),
-    gasUrl: document.getElementById('settingGasUrl').value.trim(),
-  };
-  localStorage.setItem('postureAppSettings', JSON.stringify(settings));
-  closeSettings();
-  showToast('設定を保存しました');
+function clearSession() {
+  localStorage.removeItem('postureAppSession');
 }
 
-// ===== GAS通信ヘルパー =====
+async function doLogin() {
+  const facilityId = document.getElementById('loginFacilityId').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errBox = document.getElementById('loginError');
+  errBox.textContent = '';
+  if (!facilityId || !password) {
+    errBox.textContent = '事業所IDとパスワードを入力してください';
+    return;
+  }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = 'ログイン中...';
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'login', facilityId, password }),
+    });
+    const result = await res.json();
+    if (result.status !== 'ok') {
+      errBox.textContent = result.message || 'ログインに失敗しました';
+      return;
+    }
+    setSession(result.session);
+    document.getElementById('loginPassword').value = '';
+    enterApp();
+    showToast(`${result.session.facilityName} としてログインしました ✓`);
+  } catch (e) {
+    console.error('Login error:', e);
+    errBox.textContent = '通信エラー。ネットワークを確認してください';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'ログイン';
+  }
+}
+
+function doLogout() {
+  if (!confirm('ログアウトしますか？\n（端末内の履歴は残ります）')) return;
+  clearSession();
+  document.getElementById('accountModal').classList.remove('visible');
+  showScreen('loginScreen');
+}
+
+function enterApp() {
+  const s = getSession();
+  document.getElementById('homeFacilityLabel').textContent =
+    s ? `🏢 ${s.corpName} ／ ${s.facilityName}` : '';
+  updateUserLabel();
+  showScreen('homeScreen');
+}
+
+function openAccountModal() {
+  const s = getSession();
+  if (!s) { showScreen('loginScreen'); return; }
+  document.getElementById('accountCorpName').textContent = s.corpName || '─';
+  document.getElementById('accountFacilityName').textContent = s.facilityName || '─';
+  document.getElementById('accountFacilityId').textContent = s.facilityId || '─';
+  document.getElementById('accountModal').classList.add('visible');
+}
+
+// ===== GAS通信ヘルパー（セッション情報を自動付与） =====
 async function gasCall(payload) {
-  const settings = getSettings();
-  if (!settings.gasUrl) throw new Error('GAS URL not configured');
-  const res = await fetch(settings.gasUrl, {
+  const session = getSession();
+  if (!session) throw new Error('未ログイン');
+  const res = await fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, facilityId: session.facilityId, token: session.token }),
   });
   const result = await res.json();
-  if (result.status !== 'ok') throw new Error(result.message || 'GAS error');
+  if (result.status !== 'ok') {
+    if (result.code === 'AUTH') {
+      // トークン失効（パスワード変更・アカウント停止等）→ 再ログインへ
+      clearSession();
+      showScreen('loginScreen');
+      showToast('再ログインが必要です');
+    }
+    throw new Error(result.message || 'GAS error');
+  }
   return result;
 }
 
-// ===== 利用者管理 =====
+// ===== 利用者管理（事業所ごとに分離して保持） =====
+function facilityKey(base) {
+  const s = getSession();
+  return base + '_' + (s ? s.facilityId : 'nologin');
+}
+
 function getLocalUsers() {
   try {
-    return JSON.parse(localStorage.getItem('postureAppUsers') || '[]');
+    return JSON.parse(localStorage.getItem(facilityKey('postureAppUsers')) || '[]');
   } catch (e) { return []; }
 }
 
 function saveLocalUsers(users) {
-  localStorage.setItem('postureAppUsers', JSON.stringify(users));
+  localStorage.setItem(facilityKey('postureAppUsers'), JSON.stringify(users));
 }
 
 function getCurrentUser() {
-  const name = localStorage.getItem('postureAppCurrentUser');
+  const name = localStorage.getItem(facilityKey('postureAppCurrentUser'));
   if (!name) return null;
   return getLocalUsers().find(u => u.name === name) || { name, token: '' };
 }
 
 function setCurrentUser(name) {
-  localStorage.setItem('postureAppCurrentUser', name);
+  localStorage.setItem(facilityKey('postureAppCurrentUser'), name);
   updateUserLabel();
 }
 
@@ -1858,9 +2014,8 @@ async function openUserModal() {
   renderUserList();
   document.getElementById('userModal').classList.add('visible');
 
-  // 施設の保存先と同期（設定済みの場合）
-  const settings = getSettings();
-  if (settings.gasUrl) {
+  // 事業所の利用者リストと同期
+  if (getSession()) {
     try {
       const result = await gasCall({ action: 'listUsers' });
       const local = getLocalUsers();
@@ -1919,9 +2074,8 @@ async function addUserFromModal() {
   input.value = '';
   renderUserList();
 
-  // 施設の保存先にも登録（トークン取得）
-  const settings = getSettings();
-  if (settings.gasUrl) {
+  // 事業所の利用者リストにも登録（トークン取得）
+  if (getSession()) {
     try {
       const result = await gasCall({ action: 'addUser', name });
       const updated = getLocalUsers();
@@ -1930,7 +2084,7 @@ async function addUserFromModal() {
       showToast(`${name} さんを登録しました ✓`);
     } catch (err) {
       console.error('Add user error:', err);
-      showToast(`${name} さんを端末に登録（Drive同期は失敗）`);
+      showToast(`${name} さんを端末に登録（同期は失敗）`);
     }
   } else {
     showToast(`${name} さんを登録しました`);
@@ -1950,11 +2104,11 @@ function startCaptureFlow() {
 function showReportQr() {
   const user = getCurrentUser();
   if (!user) { showToast('利用者を選択してください'); return; }
-  const settings = getSettings();
-  if (!settings.gasUrl) { showToast('先に設定画面で施設の保存先URLを登録してください'); return; }
-  if (!user.token) { showToast('この利用者はDrive未同期です。通信できる状態で利用者を追加し直してください'); return; }
+  const session = getSession();
+  if (!session) { showScreen('loginScreen'); return; }
+  if (!user.token) { showToast('この利用者は未同期です。通信できる状態で利用者を追加し直してください'); return; }
 
-  const url = `${settings.gasUrl}?page=report&user=${encodeURIComponent(user.name)}&key=${user.token}`;
+  const url = `${GAS_URL}?page=report&fid=${encodeURIComponent(session.facilityId)}&user=${encodeURIComponent(user.name)}&key=${user.token}`;
   state.reportUrl = url;
 
   document.getElementById('qrTitle').textContent = `${user.name} さんの評価表QR`;
@@ -1984,10 +2138,9 @@ async function toggleCloudHistory() {
 async function renderCloudHistory() {
   const list = document.getElementById('historyList');
   const user = getCurrentUser();
-  const settings = getSettings();
 
-  if (!settings.gasUrl) {
-    list.innerHTML = '<div class="history-empty">クラウド履歴を使うには、設定画面で施設の保存先URLを登録してください。</div>';
+  if (!getSession()) {
+    list.innerHTML = '<div class="history-empty">クラウド履歴を使うにはログインが必要です。</div>';
     return;
   }
   if (!user) {
@@ -2156,13 +2309,10 @@ function blobToBase64(blob) {
 }
 
 async function uploadRecordToGas(record) {
-  const settings = getSettings();
-  if (!settings.gasUrl) throw new Error('GAS URL not configured');
-
   const dataBase64 = await blobToBase64(record.blob);
   const ext = record.type === 'image' ? 'png' : 'webm';
   const ts = record.timestamp.replace(/[:.]/g, '-');
-  const payload = {
+  return await gasCall({
     action: 'saveFile',
     user: record.user || '未設定',
     template: record.template || 'V',
@@ -2173,36 +2323,18 @@ async function uploadRecordToGas(record) {
     dataBase64,
     skeleton: record.skeleton,
     timestamp: record.timestamp,
-  };
-
-  // text/plainにするとCORSプリフライトを回避できる（GAS Webアプリの定番パターン）
-  const res = await fetch(settings.gasUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
   });
-  const result = await res.json();
-  if (result.status !== 'ok') throw new Error(result.message || 'GAS error');
-  return result;
 }
 
 async function uploadMeasurementToGas(item, value, extra) {
-  const settings = getSettings();
-  if (!settings.gasUrl) return false;
   const currentUser = getCurrentUser();
-  const payload = {
+  await gasCall({
     action: 'saveMeasurement',
     user: currentUser ? currentUser.name : '未設定',
     item, value, extra: extra || '',
     timestamp: new Date().toISOString(),
-  };
-  const res = await fetch(settings.gasUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
   });
-  const result = await res.json();
-  return result.status === 'ok';
+  return true;
 }
 
 // ===== HISTORY =====
@@ -2504,15 +2636,14 @@ async function saveAnnotation() {
     await dbPut(annoRecord);
     let msg = '助言を保存しました';
 
-    const settings = getSettings();
-    if (settings.gasUrl && (comment || annoStrokes.length > 0)) {
-      showToast('Google Driveに送信中...');
+    if (getSession() && (comment || annoStrokes.length > 0)) {
+      showToast('保存先に送信中...');
       try {
         await uploadAnnotationToGas(annoRecord);
-        msg = '助言をGoogle Driveに保存しました ✓';
+        msg = '助言を事業所の保存先に保存しました ✓';
       } catch (err) {
         console.error('Annotation upload error:', err);
-        msg = '助言を保存（Drive送信は失敗）';
+        msg = '助言を保存（クラウド送信は失敗）';
       }
     }
     showToast(msg);
@@ -2524,9 +2655,6 @@ async function saveAnnotation() {
 }
 
 async function uploadAnnotationToGas(record) {
-  const settings = getSettings();
-  if (!settings.gasUrl) throw new Error('GAS URL not configured');
-
   // マーカー描画済みの合成画像を生成（画像記録の場合のみ）
   let dataBase64 = null;
   if (record.type === 'image' && annoImg) {
@@ -2536,7 +2664,7 @@ async function uploadAnnotationToGas(record) {
   }
 
   const ts = record.timestamp.replace(/[:.]/g, '-');
-  const payload = {
+  return await gasCall({
     action: 'saveAnnotation',
     user: record.user || (getCurrentUser() ? getCurrentUser().name : '未設定'),
     template: record.template || '',
@@ -2545,36 +2673,24 @@ async function uploadAnnotationToGas(record) {
     dataBase64,
     timestamp: new Date().toISOString(),
     recordTimestamp: record.timestamp,
-  };
-
-  const res = await fetch(settings.gasUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
   });
-  const result = await res.json();
-  if (result.status !== 'ok') throw new Error(result.message || 'GAS error');
-  return result;
 }
 
 // ===== INIT =====
-// URLパラメータ ?gas=... で施設の保存先を自動設定（タブレット初期設定の簡略化）
-(function bootstrapGasFromUrl() {
-  try {
-    const params = new URLSearchParams(location.search);
-    const gas = params.get('gas');
-    if (gas && gas.startsWith('https://script.google.com/')) {
-      const settings = getSettings();
-      localStorage.setItem('postureAppSettings', JSON.stringify({ ...settings, gasUrl: gas }));
-      history.replaceState(null, '', location.pathname);
-      setTimeout(() => showToast('施設の保存先を設定しました ✓'), 500);
-    }
-  } catch (e) { /* 失敗しても起動は続行 */ }
-})();
-
 setupAnnoCanvasEvents();
 renderTemplates();
-updateUserLabel();
+
+// パスワード欄でEnterキー → ログイン
+document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// 起動時: ログイン済みならホーム、未ログインならログイン画面
+if (getSession()) {
+  enterApp();
+} else {
+  showScreen('loginScreen');
+}
 </script>
 </body>
 </html>

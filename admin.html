@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>姿勢観察支援 ─ システム管理</title>
+<style>
+:root {
+  --primary: #2563eb;
+  --primary-light: #dbeafe;
+  --accent: #059669;
+  --accent-light: #d1fae5;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-600: #4b5563;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-800);
+  line-height: 1.6;
+}
+.header {
+  background: linear-gradient(135deg, #0f172a, #1e3a5f);
+  color: #fff;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header h1 { font-size: 1.15rem; }
+.header .logout-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+
+.card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.card h2 { font-size: 1.05rem; color: var(--primary); margin-bottom: 14px; }
+
+.login-card { max-width: 400px; margin: 60px auto; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--gray-600); margin-bottom: 4px; }
+.field input, .field select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-green { background: var(--accent); color: #fff; }
+.btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 6px; }
+.btn-gray { background: var(--gray-100); color: var(--gray-800); border: 1px solid var(--gray-200); }
+.btn-red { background: #fee2e2; color: var(--danger); }
+.btn-block { width: 100%; }
+.error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
+.hint { font-size: 0.78rem; color: var(--gray-600); margin-top: 8px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 10px; }
+th, td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: middle; }
+th { background: var(--gray-100); white-space: nowrap; }
+.status-active { color: var(--accent); font-weight: 700; }
+.status-stopped { color: var(--danger); font-weight: 700; }
+.add-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.add-row .field { flex: 1; min-width: 160px; margin-bottom: 0; }
+
+.cred-box {
+  background: var(--accent-light);
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  display: none;
+}
+.cred-box.visible { display: block; }
+.cred-box .cred-title { font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.cred-box code {
+  background: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.cred-box .warn { font-size: 0.78rem; color: var(--warning); margin-top: 6px; }
+
+.view { display: none; }
+.view.active { display: block; }
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: rgba(17,24,39,0.92);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 0.9rem;
+  z-index: 200;
+  transition: transform 0.3s;
+}
+.toast.visible { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🛠 姿勢観察支援 ─ システム管理（AI Care Medi）</h1>
+  <button class="logout-btn" id="logoutBtn" style="display:none;" onclick="adminLogout()">ログアウト</button>
+</div>
+
+<!-- ログイン / 初期設定 -->
+<div class="view active" id="loginView">
+  <div class="wrap">
+    <div class="card login-card" id="loginCard">
+      <h2>管理者ログイン</h2>
+      <div class="field">
+        <label>システム管理パスワード</label>
+        <input type="password" id="adminPassword" placeholder="パスワード">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="adminDoLogin()">ログイン</button>
+      <div class="error" id="loginError"></div>
+    </div>
+    <div class="card login-card" id="initCard" style="display:none;">
+      <h2>初期設定（初回のみ）</h2>
+      <p style="font-size:0.85rem;color:var(--gray-600);margin-bottom:12px;">
+        システム管理パスワードを設定します。このパスワードで法人・事業所アカウントを管理します。
+      </p>
+      <div class="field">
+        <label>新しいパスワード（8文字以上）</label>
+        <input type="password" id="initPassword">
+      </div>
+      <div class="field">
+        <label>確認のためもう一度</label>
+        <input type="password" id="initPassword2">
+      </div>
+      <button class="btn btn-green btn-block" onclick="adminDoInit()">パスワードを設定する</button>
+      <div class="error" id="initError"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 管理メイン -->
+<div class="view" id="mainView">
+  <div class="wrap">
+
+    <div class="card">
+      <h2>🏛 法人アカウント</h2>
+      <div class="add-row">
+        <div class="field">
+          <label>新しい法人名</label>
+          <input type="text" id="newCorpName" placeholder="例: 株式会社○○ケア">
+        </div>
+        <button class="btn btn-green" onclick="addCorp()">法人を追加</button>
+      </div>
+      <table id="corpTable">
+        <tr><th>法人ID</th><th>法人名</th><th>状態</th></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>🏢 事業所アカウント</h2>
+      <div class="add-row">
+        <div class="field">
+          <label>所属法人</label>
+          <select id="newFacilityCorp"></select>
+        </div>
+        <div class="field">
+          <label>事業所名</label>
+          <input type="text" id="newFacilityName" placeholder="例: △△デイサービス">
+        </div>
+        <button class="btn btn-green" onclick="addFacility()">事業所を発行</button>
+      </div>
+      <div class="cred-box" id="credBox">
+        <div class="cred-title">✅ 事業所アカウントを発行しました</div>
+        <div>事業所ID: <code id="credId"></code>　パスワード: <code id="credPw"></code></div>
+        <div class="warn">⚠ パスワードはこの画面にしか表示されません。今すぐ控えて事業所に渡してください。</div>
+      </div>
+      <table id="facilityTable">
+        <tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>状態</th><th>操作</th></tr>
+      </table>
+      <div class="hint">「パスワード再発行」をすると、その事業所は新しいパスワードでログインし直しになります（全端末で再ログインが必要）。</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfdRCRfYuPQhvl0D9EHjrXolw8IPilroU-Ky9eYKCY07-m5Ciwdla5bciAIPaa49FwRw/exec';
+
+let adminToken = sessionStorage.getItem('postureAdminToken') || null;
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('visible'), 3000);
+}
+
+async function api(payload) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...payload, adminToken }),
+  });
+  return await res.json();
+}
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('logoutBtn').style.display = (id === 'mainView') ? '' : 'none';
+}
+
+// ===== ログイン・初期設定 =====
+async function adminDoLogin() {
+  const password = document.getElementById('adminPassword').value;
+  const err = document.getElementById('loginError');
+  err.textContent = '';
+  try {
+    const r = await api({ action: 'adminLogin', password });
+    if (r.status === 'ok') {
+      adminToken = r.adminToken;
+      sessionStorage.setItem('postureAdminToken', adminToken);
+      document.getElementById('adminPassword').value = '';
+      enterMain();
+    } else if (r.code === 'NOINIT') {
+      document.getElementById('loginCard').style.display = 'none';
+      document.getElementById('initCard').style.display = '';
+    } else {
+      err.textContent = r.message || 'ログインに失敗しました';
+    }
+  } catch (e) {
+    err.textContent = '通信エラー';
+  }
+}
+
+async function adminDoInit() {
+  const p1 = document.getElementById('initPassword').value;
+  const p2 = document.getElementById('initPassword2').value;
+  const err = document.getElementById('initError');
+  err.textContent = '';
+  if (p1.length < 8) { err.textContent = '8文字以上にしてください'; return; }
+  if (p1 !== p2) { err.textContent = 'パスワードが一致しません'; return; }
+  try {
+    const r = await api({ action: 'adminInit', password: p1 });
+    if (r.status === 'ok') {
+      adminToken = r.adminToken;
+      sessionStorage.setItem('postureAdminToken', adminToken);
+      showToast('初期設定が完了しました ✓');
+      enterMain();
+    } else {
+      err.textContent = r.message || '設定に失敗しました';
+    }
+  } catch (e) {
+    err.textContent = '通信エラー';
+  }
+}
+
+function adminLogout() {
+  adminToken = null;
+  sessionStorage.removeItem('postureAdminToken');
+  showView('loginView');
+}
+
+async function enterMain() {
+  showView('mainView');
+  await refreshAll();
+}
+
+// ===== 法人・事業所管理 =====
+async function refreshAll() {
+  await Promise.all([refreshCorps(), refreshFacilities()]);
+}
+
+async function refreshCorps() {
+  const r = await api({ action: 'adminListCorps' });
+  if (r.status !== 'ok') { handleApiError(r); return; }
+  const table = document.getElementById('corpTable');
+  table.innerHTML = '<tr><th>法人ID</th><th>法人名</th><th>状態</th></tr>';
+  const select = document.getElementById('newFacilityCorp');
+  select.innerHTML = '';
+  r.corps.forEach(c => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${c.corpId}</td><td>${escapeHtml(c.name)}</td>` +
+      `<td class="${c.active ? 'status-active' : 'status-stopped'}">${c.active ? '有効' : '停止'}</td>`;
+    table.appendChild(tr);
+    const opt = document.createElement('option');
+    opt.value = c.corpId;
+    opt.textContent = `${c.corpId} ${c.name}`;
+    select.appendChild(opt);
+  });
+  if (r.corps.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="3" style="text-align:center;color:#9ca3af;">まだ法人がありません。上の欄から追加してください。</td>';
+    table.appendChild(tr);
+  }
+}
+
+async function refreshFacilities() {
+  const r = await api({ action: 'adminListFacilities' });
+  if (r.status !== 'ok') { handleApiError(r); return; }
+  const table = document.getElementById('facilityTable');
+  table.innerHTML = '<tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>状態</th><th>操作</th></tr>';
+  r.facilities.forEach(f => {
+    const tr = document.createElement('tr');
+    const statusCell = `<td class="${f.active ? 'status-active' : 'status-stopped'}">${f.active ? '有効' : '停止'}</td>`;
+    tr.innerHTML = `<td>${f.facilityId}</td><td>${escapeHtml(f.name)}</td><td>${escapeHtml(f.corpName)}</td>${statusCell}`;
+    const opTd = document.createElement('td');
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn btn-sm ' + (f.active ? 'btn-red' : 'btn-green');
+    toggleBtn.textContent = f.active ? '停止する' : '再開する';
+    toggleBtn.onclick = async () => {
+      if (!confirm(`${f.name} を${f.active ? '停止' : '再開'}しますか？`)) return;
+      const res = await api({ action: 'adminSetFacilityStatus', facilityId: f.facilityId, active: !f.active });
+      if (res.status === 'ok') { showToast('更新しました'); refreshFacilities(); }
+      else handleApiError(res);
+    };
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'btn btn-sm btn-gray';
+    resetBtn.style.marginLeft = '6px';
+    resetBtn.textContent = 'パスワード再発行';
+    resetBtn.onclick = async () => {
+      if (!confirm(`${f.name} のパスワードを再発行しますか？\n（現在のパスワードは使えなくなります）`)) return;
+      const res = await api({ action: 'adminResetPassword', facilityId: f.facilityId });
+      if (res.status === 'ok') {
+        showCred(res.facilityId, res.password);
+        showToast('パスワードを再発行しました');
+      } else handleApiError(res);
+    };
+
+    opTd.appendChild(toggleBtn);
+    opTd.appendChild(resetBtn);
+    tr.appendChild(opTd);
+    table.appendChild(tr);
+  });
+  if (r.facilities.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="5" style="text-align:center;color:#9ca3af;">まだ事業所がありません。</td>';
+    table.appendChild(tr);
+  }
+}
+
+async function addCorp() {
+  const name = document.getElementById('newCorpName').value.trim();
+  if (!name) { showToast('法人名を入力してください'); return; }
+  const r = await api({ action: 'adminAddCorp', name });
+  if (r.status === 'ok') {
+    document.getElementById('newCorpName').value = '';
+    showToast(`法人「${name}」を追加しました（${r.corp.corpId}）`);
+    refreshCorps();
+  } else handleApiError(r);
+}
+
+async function addFacility() {
+  const corpId = document.getElementById('newFacilityCorp').value;
+  const name = document.getElementById('newFacilityName').value.trim();
+  if (!corpId) { showToast('先に法人を追加してください'); return; }
+  if (!name) { showToast('事業所名を入力してください'); return; }
+  const r = await api({ action: 'adminAddFacility', corpId, name });
+  if (r.status === 'ok') {
+    document.getElementById('newFacilityName').value = '';
+    showCred(r.facility.facilityId, r.facility.password);
+    refreshFacilities();
+  } else handleApiError(r);
+}
+
+function showCred(id, pw) {
+  document.getElementById('credId').textContent = id;
+  document.getElementById('credPw').textContent = pw;
+  document.getElementById('credBox').classList.add('visible');
+}
+
+function handleApiError(r) {
+  if (r.code === 'AUTH') {
+    showToast('セッション切れ。再ログインしてください');
+    adminLogout();
+  } else {
+    showToast('エラー: ' + (r.message || '不明'));
+  }
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Enterキー対応
+document.getElementById('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') adminDoLogin(); });
+
+// 起動時: トークンがあれば検証を兼ねてメインへ
+if (adminToken) {
+  enterMain();
+}
+</script>
+</body>
+</html>
