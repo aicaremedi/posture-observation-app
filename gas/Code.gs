@@ -75,10 +75,23 @@ function jsonOut(obj) {
 // 高速化: 1回の実行内ではスプレッドシート・各シートの内容をキャッシュして
 // Drive検索/シートアクセスを最小限にする
 
-var _cache = { ss: null, settings: null, corps: null, facilities: null };
+var _cache = { ss: null, db: null };
+const DB_CACHE_KEY = 'systemDb_v1';
+const DB_CACHE_SEC = 300; // 5分（更新系の操作時は即時無効化する）
 
 function getSystemSS() {
   if (_cache.ss) return _cache.ss;
+
+  // スプレッドシートIDを記憶してDrive検索を省略（2回目以降は直接オープン）
+  const props = PropertiesService.getScriptProperties();
+  const savedId = props.getProperty('systemSSId');
+  if (savedId) {
+    try {
+      _cache.ss = SpreadsheetApp.openById(savedId);
+      return _cache.ss;
+    } catch (e) { /* 削除された場合は下の作成パスへ */ }
+  }
+
   const root = getOrCreateRootFolder();
   const ss = getOrCreateSpreadsheet(root, SYSTEM_SS_NAME);
   ensureSheet(ss, '法人', ['法人ID', '法人名', '状態', '作成日']);
@@ -89,19 +102,49 @@ function getSystemSS() {
     fSheet.getRange(1, 8).setValue('パスワード').setFontWeight('bold');
   }
   ensureSheet(ss, '設定', ['キー', '値']);
+  props.setProperty('systemSSId', ss.getId());
   _cache.ss = ss;
   return ss;
 }
 
-function corpRows() {
-  if (!_cache.corps) _cache.corps = sheetRows(getSystemSS().getSheetByName('法人'));
-  return _cache.corps;
+/**
+ * 管理DB（設定/法人/事業所）をまとめて読み込む。
+ * CacheServiceで5分間キャッシュされるため、読み取り系のリクエストは
+ * スプレッドシートを開かずに応答できる（大幅な高速化）。
+ */
+function loadDb() {
+  if (_cache.db) return _cache.db;
+
+  const cached = CacheService.getScriptCache().get(DB_CACHE_KEY);
+  if (cached) {
+    _cache.db = JSON.parse(cached);
+    return _cache.db;
+  }
+
+  const ss = getSystemSS();
+  const settings = {};
+  sheetRows(ss.getSheetByName('設定')).forEach(function(r) {
+    settings[String(r[0])] = String(r[1]);
+  });
+  const db = {
+    settings: settings,
+    corps: sheetRows(ss.getSheetByName('法人')).map(function(r) { return r.map(String); }),
+    facilities: sheetRows(ss.getSheetByName('事業所')).map(function(r) { return r.map(String); })
+  };
+  try {
+    CacheService.getScriptCache().put(DB_CACHE_KEY, JSON.stringify(db), DB_CACHE_SEC);
+  } catch (e) { /* キャッシュ容量超過時は都度読み込みにフォールバック */ }
+  _cache.db = db;
+  return db;
 }
 
-function facilityRows() {
-  if (!_cache.facilities) _cache.facilities = sheetRows(getSystemSS().getSheetByName('事業所'));
-  return _cache.facilities;
+function invalidateDb() {
+  _cache.db = null;
+  CacheService.getScriptCache().remove(DB_CACHE_KEY);
 }
+
+function corpRows() { return loadDb().corps; }
+function facilityRows() { return loadDb().facilities; }
 
 function ensureSheet(ss, name, headers) {
   var sheet = ss.getSheetByName(name);
@@ -120,19 +163,14 @@ function sheetRows(sheet) {
 }
 
 function getSetting(key) {
-  if (!_cache.settings) {
-    _cache.settings = {};
-    sheetRows(getSystemSS().getSheetByName('設定')).forEach(function(r) {
-      _cache.settings[String(r[0])] = String(r[1]);
-    });
-  }
-  return _cache.settings.hasOwnProperty(key) ? _cache.settings[key] : null;
+  const settings = loadDb().settings;
+  return settings.hasOwnProperty(key) ? settings[key] : null;
 }
 
 function setSetting(key, value) {
   const sheet = getSystemSS().getSheetByName('設定');
   const rows = sheetRows(sheet);
-  _cache.settings = null;
+  invalidateDb();
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === key) { sheet.getRange(i + 2, 2).setValue(value); return; }
   }
@@ -228,7 +266,7 @@ function adminAddCorp(p) {
   });
   const corpId = 'C' + ('000' + (maxNum + 1)).slice(-3);
   sheet.appendRow([corpId, name, '有効', new Date()]);
-  _cache.corps = null;
+  invalidateDb();
   getOrCreateFolderIn(getOrCreateRootFolder(), name);
   return { status: 'ok', corp: { corpId: corpId, name: name } };
 }
@@ -271,7 +309,7 @@ function adminAddFacility(p) {
   const password = randomPassword();
   const salt = randomToken();
   sheet.appendRow([facilityId, name, corpId, sha256hex(salt + password), salt, '有効', new Date(), password]);
-  _cache.facilities = null;
+  invalidateDb();
 
   // 法人フォルダ/事業所フォルダを自動生成
   const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), String(corpRow[1]));
@@ -289,7 +327,7 @@ function adminSetFacilityStatus(p) {
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === String(p.facilityId)) {
       sheet.getRange(i + 2, 6).setValue(p.active ? '有効' : '停止');
-      _cache.facilities = null;
+      invalidateDb();
       return { status: 'ok' };
     }
   }
@@ -306,7 +344,7 @@ function adminResetPassword(p) {
       sheet.getRange(i + 2, 4).setValue(sha256hex(salt + password));
       sheet.getRange(i + 2, 5).setValue(salt);
       sheet.getRange(i + 2, 8).setValue(password);
-      _cache.facilities = null;
+      invalidateDb();
       return { status: 'ok', facilityId: String(p.facilityId), password: password };
     }
   }
