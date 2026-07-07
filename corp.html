@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>姿勢観察支援 ─ 法人ポータル</title>
+<title>姿勢観察支援 ─ 法人管理</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='22' r='12' fill='%237c3aed'/%3E%3Cpath d='M50 34 L50 62 M50 42 L30 52 M50 42 L70 52 M50 62 L34 88 M50 62 L66 88' stroke='%237c3aed' stroke-width='9' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
 <style>
 :root {
@@ -179,29 +179,22 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 <body>
 
 <div class="header">
-  <h1>🏛 姿勢観察支援 ─ 法人ポータル</h1>
+  <h1>🏛 姿勢観察支援 ─ 法人管理</h1>
   <div style="display:flex;align-items:center;gap:12px;">
     <span class="corp-label" id="corpLabel"></span>
     <button class="logout-btn" id="logoutBtn" style="display:none;" onclick="corpLogout()">ログアウト</button>
   </div>
 </div>
 
-<!-- ログイン -->
+<!-- 未ログイン時は共通ログイン画面（アプリ本体）へ誘導 -->
 <div class="view active" id="loginView">
   <div class="wrap">
-    <div class="card login-card">
-      <h2>法人ポータル ログイン</h2>
-      <div class="field">
-        <label>法人ID</label>
-        <input type="text" id="loginCorpId" placeholder="例: C001">
-      </div>
-      <div class="field">
-        <label>パスワード</label>
-        <input type="password" id="loginPassword" placeholder="パスワード">
-      </div>
-      <button class="btn btn-primary btn-block" onclick="corpDoLogin()">ログイン</button>
-      <div class="error" id="loginError"></div>
-      <div class="hint">法人IDとパスワードは販売元（AI Care Medi）から発行されます。</div>
+    <div class="card login-card" style="text-align:center;">
+      <h2>ログインが必要です</h2>
+      <p style="font-size:0.88rem;color:var(--gray-600);margin:12px 0 16px;">
+        共通ログイン画面から、法人ID（C001 など）とパスワードでログインしてください。
+      </p>
+      <a class="btn btn-primary btn-block" href="./" style="display:block;text-decoration:none;text-align:center;">ログイン画面へ</a>
     </div>
   </div>
 </div>
@@ -287,7 +280,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfdRCRfYuPQhvl0D9EHjrXolw8IPilroU-Ky9eYKCY07-m5Ciwdla5bciAIPaa49FwRw/exec';
 
 let session = null;
-try { session = JSON.parse(sessionStorage.getItem('postureCorpSession') || 'null'); } catch (e) {}
+try { session = JSON.parse(localStorage.getItem('postureCorpSession') || 'null'); } catch (e) {}
 let data = { corp: {}, facilities: [], invoices: [], billSettings: {} };
 let currentUsers = [];
 
@@ -336,34 +329,11 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// ===== ログイン =====
-async function corpDoLogin() {
-  const corpId = document.getElementById('loginCorpId').value.trim();
-  const password = document.getElementById('loginPassword').value;
-  const err = document.getElementById('loginError');
-  err.textContent = '';
-  if (!corpId || !password) { err.textContent = '法人IDとパスワードを入力してください'; return; }
-  try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'corpLogin', corpId, password }),
-    });
-    const r = await res.json();
-    if (r.status !== 'ok') { err.textContent = r.message || 'ログインに失敗しました'; return; }
-    session = r.session;
-    sessionStorage.setItem('postureCorpSession', JSON.stringify(session));
-    document.getElementById('loginPassword').value = '';
-    enterMain();
-  } catch (e) {
-    err.textContent = '通信エラー';
-  }
-}
-
+// ===== ログイン（共通ログイン画面 index.html で行う） =====
 function corpLogout() {
   session = null;
-  sessionStorage.removeItem('postureCorpSession');
-  showView('loginView');
+  localStorage.removeItem('postureCorpSession');
+  location.href = './'; // 共通ログイン画面へ
 }
 
 async function enterMain() {
@@ -651,8 +621,6 @@ function openInvoicePage(inv) {
 }
 
 // ===== INIT =====
-document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') corpDoLogin(); });
-
 if (session) {
   enterMain();
 }

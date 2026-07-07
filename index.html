@@ -786,10 +786,10 @@ body {
 <div id="loginScreen" class="screen">
   <div class="login-box">
     <h2>姿勢観察支援</h2>
-    <div class="login-sub">事業所アカウントでログイン</div>
+    <div class="login-sub">発行されたIDとパスワードでログイン</div>
     <div class="login-field">
-      <label>事業所ID</label>
-      <input type="text" id="loginFacilityId" placeholder="例: F1234" autocomplete="username">
+      <label>ID（事業所ID または 法人ID）</label>
+      <input type="text" id="loginFacilityId" placeholder="例: F1234（事業所）／ C001（法人）" autocomplete="username">
     </div>
     <div class="login-field">
       <label>パスワード</label>
@@ -1896,12 +1896,12 @@ function clearSession() {
 }
 
 async function doLogin() {
-  const facilityId = document.getElementById('loginFacilityId').value.trim();
+  const loginId = document.getElementById('loginFacilityId').value.trim().toUpperCase();
   const password = document.getElementById('loginPassword').value;
   const errBox = document.getElementById('loginError');
   errBox.textContent = '';
-  if (!facilityId || !password) {
-    errBox.textContent = '事業所IDとパスワードを入力してください';
+  if (!loginId || !password) {
+    errBox.textContent = 'IDとパスワードを入力してください';
     return;
   }
 
@@ -1909,10 +1909,27 @@ async function doLogin() {
   btn.disabled = true;
   btn.textContent = 'ログイン中...';
   try {
+    // IDの先頭文字で自動振り分け（C…=法人 / F…=事業所）
+    if (loginId.startsWith('C')) {
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'corpLogin', corpId: loginId, password }),
+      });
+      const result = await res.json();
+      if (result.status !== 'ok') {
+        errBox.textContent = result.message || 'ログインに失敗しました';
+        return;
+      }
+      localStorage.setItem('postureCorpSession', JSON.stringify(result.session));
+      location.href = 'corp.html'; // 法人画面へ
+      return;
+    }
+
     const res = await fetch(GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'login', facilityId, password }),
+      body: JSON.stringify({ action: 'login', facilityId: loginId, password }),
     });
     const result = await res.json();
     if (result.status !== 'ok') {

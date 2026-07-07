@@ -323,7 +323,7 @@ button:disabled { opacity: 0.5; cursor: default; }
           </div>
           <button class="btn btn-green" onclick="addCorp()">法人を追加</button>
         </div>
-        <div class="hint">法人を登録すると、その法人専用の<strong>法人ポータル</strong>のログイン情報（法人ID＋パスワード）も自動発行されます。法人ポータルURL: <a href="corp.html" target="_blank">https://aicaremedi.github.io/posture-observation-app/corp.html</a><br>課金は「有効な事業所の数 × 法人ごとの単価」です。事業所の発行はこのシステム管理画面のみ。</div>
+        <div class="hint">法人を登録すると、法人用のログイン情報（法人ID＋パスワード）も自動発行されます。<strong>ログインはアプリと共通のログイン画面</strong>（<a href="./" target="_blank">アプリURL</a>）から行い、IDの種類（C…＝法人／F…＝事業所）で自動的に画面が振り分けられます。<br>課金は「有効な事業所の数 × 法人ごとの単価」です。法人・事業所の発行はこのシステム管理画面のみ。</div>
       </div>
       <div class="cred-box" id="credBox">
         <div class="cred-title">✅ 事業所アカウントを発行しました</div>
@@ -718,7 +718,7 @@ function renderOrgs() {
     portal.className = 'org-contact';
     portal.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
     const portalLabel = document.createElement('span');
-    portalLabel.textContent = `🔑 法人ポータル: ID ${c.corpId} ／ PW `;
+    portalLabel.textContent = `🔑 法人ログイン: ID ${c.corpId} ／ PW `;
     portal.appendChild(portalLabel);
     if (c.portalPassword) {
       const pwSpan = document.createElement('span');
@@ -738,12 +738,12 @@ function renderOrgs() {
     }
     const portalResetBtn = document.createElement('button');
     portalResetBtn.className = 'btn btn-sm btn-gray';
-    portalResetBtn.textContent = c.portalPassword ? 'ポータルPW再発行' : 'ポータルPWを発行';
+    portalResetBtn.textContent = c.portalPassword ? '法人PW再発行' : '法人PWを発行';
     portalResetBtn.onclick = async () => {
-      if (!confirm(`${c.name} の法人ポータルパスワードを${c.portalPassword ? '再発行' : '発行'}しますか？`)) return;
+      if (!confirm(`${c.name} の法人ログイン用パスワードを${c.portalPassword ? '再発行' : '発行'}しますか？`)) return;
       portalResetBtn.disabled = true;
       const res = await api({ action: 'adminResetCorpPassword', corpId: c.corpId });
-      if (res.status === 'ok') { showToast(`ポータルPW: ${res.password}（一覧の表示からも確認可）`); refreshAll(); }
+      if (res.status === 'ok') { showToast(`法人PW: ${res.password}（カードの表示からも確認可）`); refreshAll(); }
       else handleApiError(res);
     };
     portal.appendChild(portalResetBtn);
