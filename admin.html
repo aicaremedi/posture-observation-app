@@ -323,7 +323,7 @@ button:disabled { opacity: 0.5; cursor: default; }
           </div>
           <button class="btn btn-green" onclick="addCorp()">法人を追加</button>
         </div>
-        <div class="hint">法人を登録し、その配下に事業所を発行します（発行はこのシステム管理画面のみ）。課金は「有効な事業所の数 × 法人ごとの単価」です。</div>
+        <div class="hint">法人を登録すると、その法人専用の<strong>法人ポータル</strong>のログイン情報（法人ID＋パスワード）も自動発行されます。法人ポータルURL: <a href="corp.html" target="_blank">https://aicaremedi.github.io/posture-observation-app/corp.html</a><br>課金は「有効な事業所の数 × 法人ごとの単価」です。事業所の発行はこのシステム管理画面のみ。</div>
       </div>
       <div class="cred-box" id="credBox">
         <div class="cred-title">✅ 事業所アカウントを発行しました</div>
@@ -712,6 +712,42 @@ function renderOrgs() {
       contact.textContent = '👤 ' + contactInfo;
       body.appendChild(contact);
     }
+
+    // 法人ポータルのログイン情報
+    const portal = document.createElement('div');
+    portal.className = 'org-contact';
+    portal.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+    const portalLabel = document.createElement('span');
+    portalLabel.textContent = `🔑 法人ポータル: ID ${c.corpId} ／ PW `;
+    portal.appendChild(portalLabel);
+    if (c.portalPassword) {
+      const pwSpan = document.createElement('span');
+      pwSpan.className = 'pw-value';
+      pwSpan.textContent = '••••••••';
+      const pwBtn = document.createElement('button');
+      pwBtn.className = 'btn btn-sm btn-gray';
+      pwBtn.textContent = '表示';
+      let shown = false;
+      pwBtn.onclick = () => {
+        shown = !shown;
+        pwSpan.textContent = shown ? c.portalPassword : '••••••••';
+        pwBtn.textContent = shown ? '隠す' : '表示';
+      };
+      portal.appendChild(pwSpan);
+      portal.appendChild(pwBtn);
+    }
+    const portalResetBtn = document.createElement('button');
+    portalResetBtn.className = 'btn btn-sm btn-gray';
+    portalResetBtn.textContent = c.portalPassword ? 'ポータルPW再発行' : 'ポータルPWを発行';
+    portalResetBtn.onclick = async () => {
+      if (!confirm(`${c.name} の法人ポータルパスワードを${c.portalPassword ? '再発行' : '発行'}しますか？`)) return;
+      portalResetBtn.disabled = true;
+      const res = await api({ action: 'adminResetCorpPassword', corpId: c.corpId });
+      if (res.status === 'ok') { showToast(`ポータルPW: ${res.password}（一覧の表示からも確認可）`); refreshAll(); }
+      else handleApiError(res);
+    };
+    portal.appendChild(portalResetBtn);
+    body.appendChild(portal);
 
     const scroll = document.createElement('div');
     scroll.className = 'table-scroll';

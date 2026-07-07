@@ -41,10 +41,18 @@ function doPost(e) {
       case 'adminAddFacility': r = withAdmin(p, adminAddFacility); break;
       case 'adminSetFacilityStatus': r = withAdmin(p, adminSetFacilityStatus); break;
       case 'adminResetPassword': r = withAdmin(p, adminResetPassword); break;
+      case 'adminResetCorpPassword': r = withAdmin(p, adminResetCorpPassword); break;
       case 'adminSaveSettings': r = withAdmin(p, adminSaveSettings); break;
       case 'adminGenerateInvoices': r = withAdmin(p, adminGenerateInvoices); break;
       case 'adminSetInvoiceStatus': r = withAdmin(p, adminSetInvoiceStatus); break;
       case 'adminDeleteInvoice': r = withAdmin(p, adminDeleteInvoice); break;
+      // 法人ポータル（要法人ログイン）
+      case 'corpLogin': r = corpLogin(p); break;
+      case 'corpOverview': r = withCorp(p, corpOverview); break;
+      case 'corpListUsers': r = withCorp(p, corpListUsers); break;
+      case 'corpListRecords': r = withCorp(p, corpListRecords); break;
+      case 'corpGetFileData': r = withCorp(p, corpGetFileData); break;
+      case 'corpResetFacilityPassword': r = withCorp(p, corpResetFacilityPassword); break;
       // 事業所（要ログイン）
       case 'listUsers': r = withFacility(p, apiListUsers); break;
       case 'addUser': r = withFacility(p, apiAddUser); break;
@@ -163,6 +171,12 @@ function ensureExtendedStructure(ss) {
   // 保存単位列（'事業所' = 事業所ごとにフォルダ分割 / '法人' = 法人でまとめて共有）
   if (corpSheet && String(corpSheet.getRange(1, 11).getValue()) !== '保存単位') {
     corpSheet.getRange(1, 11).setValue('保存単位').setFontWeight('bold');
+  }
+  // 法人ポータルのログイン情報列
+  if (corpSheet && String(corpSheet.getRange(1, 12).getValue()) !== 'PWハッシュ') {
+    corpSheet.getRange(1, 12, 1, 3)
+      .setValues([['PWハッシュ', 'PWソルト', 'パスワード']])
+      .setFontWeight('bold');
   }
   ensureSheet(ss, '請求',
     ['請求ID', '法人ID', '対象月', '事業所数', '単価税抜', '税抜額', '消費税', '税込額', '状態', '発行日', '支払期限']);
@@ -287,7 +301,8 @@ function adminListCorps(p) {
         address: String(r[7] || ''),
         unitPrice: Number(r[8] || 0),
         note: String(r[9] || ''),
-        storageScope: String(r[10] || '事業所')
+        storageScope: String(r[10] || '事業所'),
+        portalPassword: String(r[13] || '')
       };
     })
   };
@@ -435,10 +450,31 @@ function adminAddCorp(p) {
     if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
   });
   const corpId = 'C' + ('000' + (maxNum + 1)).slice(-3);
-  sheet.appendRow([corpId, name, '有効', new Date()]);
+  // 法人ポータルのログイン情報も同時に発行
+  const password = randomPassword();
+  const salt = randomToken();
+  sheet.appendRow([corpId, name, '有効', new Date(),
+    '', '', '', '', 0, '', '事業所',
+    sha256hex(salt + password), salt, password]);
   invalidateDb();
   getOrCreateFolderIn(getOrCreateRootFolder(), name);
-  return { status: 'ok', corp: { corpId: corpId, name: name } };
+  return { status: 'ok', corp: { corpId: corpId, name: name, portalPassword: password } };
+}
+
+/** 法人ポータルのパスワード発行/再発行 */
+function adminResetCorpPassword(p) {
+  const sheet = getSystemSS().getSheetByName('法人');
+  const rows = sheetRows(sheet);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(p.corpId)) {
+      const password = randomPassword();
+      const salt = randomToken();
+      sheet.getRange(i + 2, 12, 1, 3).setValues([[sha256hex(salt + password), salt, password]]);
+      invalidateDb();
+      return { status: 'ok', corpId: String(p.corpId), password: password };
+    }
+  }
+  return { status: 'error', message: '法人が見つかりません' };
 }
 
 function adminListFacilities(p) {
@@ -535,6 +571,126 @@ function findFacility(facilityId) {
     if (String(rows[i][0]) === String(facilityId)) return rows[i];
   }
   return null;
+}
+
+// ===== 法人ポータル（本部向け・閲覧＋最小限の管理操作） =====
+
+function corpTokenFor(corpId, passwordHash) {
+  return sha256hex('corp:' + corpId + ':' + passwordHash + ':' + TOKEN_SALT);
+}
+
+function corpLogin(p) {
+  const row = findCorp(String(p.corpId || '').trim().toUpperCase());
+  if (!row || !String(row[11] || '')) {
+    return { status: 'error', message: '法人IDまたはパスワードが違います' };
+  }
+  if (String(row[2]) !== '有効') {
+    return { status: 'error', message: 'このアカウントは停止中です。販売元にお問い合わせください' };
+  }
+  if (sha256hex(String(row[12]) + String(p.password || '')) !== String(row[11])) {
+    return { status: 'error', message: '法人IDまたはパスワードが違います' };
+  }
+  return {
+    status: 'ok',
+    session: {
+      corpId: String(row[0]),
+      corpName: String(row[1]),
+      token: corpTokenFor(String(row[0]), String(row[11]))
+    }
+  };
+}
+
+function withCorp(p, fn) {
+  const row = findCorp(String(p.corpId || ''));
+  if (!row || String(row[2]) !== '有効' || !String(row[11] || '') ||
+      String(p.token || '') !== corpTokenFor(String(row[0]), String(row[11]))) {
+    return { status: 'error', code: 'AUTH', message: '認証エラー。再ログインしてください' };
+  }
+  return fn(p, { corpRow: row, corpId: String(row[0]), corpName: String(row[1]) });
+}
+
+/** 法人配下の事業所のデータフォルダ（保存単位を考慮） */
+function corpDataFolderFor(corpRow, facilityRow) {
+  const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), String(corpRow[1]));
+  const scope = String(corpRow[10] || '事業所');
+  return (scope === '法人') ? corpFolder : getOrCreateFolderIn(corpFolder, String(facilityRow[1]));
+}
+
+/** 事業所が自法人のものであることを確認して行を返す */
+function corpOwnFacility(ctx, facilityId) {
+  const row = findFacility(String(facilityId || ''));
+  if (!row || String(row[2]) !== ctx.corpId) return null;
+  return row;
+}
+
+function corpOverview(p, ctx) {
+  const facilities = facilityRows()
+    .filter(function(r) { return String(r[2]) === ctx.corpId; })
+    .map(function(r) {
+      return { facilityId: String(r[0]), name: String(r[1]), active: String(r[5]) === '有効' };
+    });
+  const invoices = adminListInvoices().filter(function(i) { return i.corpId === ctx.corpId; });
+  const db = loadDb();
+  const billSettings = {};
+  ['bill_company', 'bill_address', 'bill_tel', 'bill_bank', 'bill_invoiceNo', 'bill_note']
+    .forEach(function(k) { billSettings[k] = db.settings[k] || ''; });
+  const c = ctx.corpRow;
+  return {
+    status: 'ok',
+    corp: {
+      corpId: ctx.corpId, name: ctx.corpName,
+      contact: String(c[4] || ''), address: String(c[7] || ''),
+      unitPrice: Number(c[8] || 0), storageScope: String(c[10] || '事業所')
+    },
+    facilities: facilities,
+    invoices: invoices,
+    billSettings: billSettings
+  };
+}
+
+function corpListUsers(p, ctx) {
+  const fRow = corpOwnFacility(ctx, p.facilityId);
+  if (!fRow) return { status: 'error', message: '事業所が見つかりません' };
+  const folder = corpDataFolderFor(ctx.corpRow, fRow);
+  const users = [];
+  sheetRows(getUsersSheetIn(folder)).forEach(function(r) {
+    if (r[0]) users.push({ name: String(r[0]), token: String(r[1]) });
+  });
+  return { status: 'ok', users: users };
+}
+
+function corpListRecords(p, ctx) {
+  const fRow = corpOwnFacility(ctx, p.facilityId);
+  if (!fRow) return { status: 'error', message: '事業所が見つかりません' };
+  const folder = corpDataFolderFor(ctx.corpRow, fRow);
+  return { status: 'ok', records: listRecordsIn(folder, String(p.user || '')) };
+}
+
+function corpGetFileData(p, ctx) {
+  const fRow = corpOwnFacility(ctx, p.facilityId);
+  if (!fRow) return { status: 'error', message: '事業所が見つかりません' };
+  const folder = corpDataFolderFor(ctx.corpRow, fRow);
+  const file = DriveApp.getFileById(String(p.fileId));
+  if (!isInsideFolder(file, folder)) {
+    return { status: 'error', message: 'アクセスできないファイルです' };
+  }
+  if (file.getSize() > 25 * 1024 * 1024) {
+    return { status: 'error', message: 'ファイルが大きすぎます', url: file.getUrl() };
+  }
+  const blob = file.getBlob();
+  return {
+    status: 'ok',
+    base64: Utilities.base64Encode(blob.getBytes()),
+    mimeType: blob.getContentType(),
+    name: file.getName()
+  };
+}
+
+/** 現場がパスワードを忘れた際に本部から再発行（自法人の事業所のみ） */
+function corpResetFacilityPassword(p, ctx) {
+  const fRow = corpOwnFacility(ctx, p.facilityId);
+  if (!fRow) return { status: 'error', message: '事業所が見つかりません' };
+  return adminResetPassword({ facilityId: p.facilityId });
 }
 
 // ===== 事業所ログイン =====

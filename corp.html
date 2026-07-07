@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>姿勢観察支援 ─ 法人ポータル</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='22' r='12' fill='%237c3aed'/%3E%3Cpath d='M50 34 L50 62 M50 42 L30 52 M50 42 L70 52 M50 62 L34 88 M50 62 L66 88' stroke='%237c3aed' stroke-width='9' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+<style>
+:root {
+  --primary: #7c3aed;
+  --primary-light: #ede9fe;
+  --accent: #059669;
+  --accent-light: #d1fae5;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-600: #4b5563;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-800);
+  line-height: 1.6;
+}
+.header {
+  background: linear-gradient(135deg, #2e1065, #5b21b6);
+  color: #fff;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.header h1 { font-size: 1.05rem; }
+.header .corp-label { font-size: 0.82rem; opacity: 0.85; }
+.header .logout-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.tab-nav {
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  overflow-x: auto;
+}
+.tab-btn {
+  border: none;
+  background: none;
+  padding: 14px 18px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.card h2 { font-size: 1.05rem; color: var(--primary); margin-bottom: 14px; }
+.login-card { max-width: 400px; margin: 60px auto; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--gray-600); margin-bottom: 4px; }
+.field input, .field select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 6px; }
+.btn-gray { background: var(--gray-100); color: var(--gray-800); border: 1px solid var(--gray-200); }
+.btn-block { width: 100%; }
+button:disabled { opacity: 0.5; cursor: default; }
+.error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
+.hint { font-size: 0.78rem; color: var(--gray-600); margin-top: 8px; }
+.table-scroll { overflow-x: auto; margin-top: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { border: 1px solid var(--gray-200); padding: 10px 14px; text-align: left; vertical-align: middle; }
+th { background: var(--gray-100); white-space: nowrap; }
+td { white-space: nowrap; }
+td.col-name { white-space: normal; min-width: 160px; line-height: 1.4; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.status-active { color: var(--accent); font-weight: 700; }
+.status-stopped { color: var(--danger); font-weight: 700; }
+.state-issued { color: var(--warning); font-weight: 700; }
+.state-paid { color: var(--accent); font-weight: 700; }
+.ops { display: flex; gap: 8px; align-items: center; }
+.loading-row td { text-align: center; color: #9ca3af; padding: 24px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 12px; padding: 18px; }
+.stat-card .stat-label { font-size: 0.82rem; color: var(--gray-600); font-weight: 600; }
+.stat-card .stat-value { font-size: 1.6rem; font-weight: 800; margin-top: 4px; }
+.cred-box {
+  background: var(--accent-light);
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  display: none;
+}
+.cred-box.visible { display: block; }
+.cred-box code { background: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+.select-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.select-row .field { flex: 1; min-width: 200px; }
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal-overlay.visible { display: flex; }
+.modal-box { background: #fff; border-radius: 14px; padding: 20px; width: 100%; max-width: 760px; }
+.viewer-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  max-height: 68vh;
+  overflow: hidden;
+  background: #111;
+  border-radius: 10px;
+}
+.viewer-box img, .viewer-box video { max-width: 100%; max-height: 68vh; object-fit: contain; }
+.modal-actions { display: flex; gap: 10px; margin-top: 14px; }
+.modal-actions .btn { flex: 1; }
+.view { display: none; }
+.view.active { display: block; }
+.tab-page { display: none; }
+.tab-page.active { display: block; }
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: rgba(17,24,39,0.92);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 0.9rem;
+  z-index: 200;
+  transition: transform 0.3s;
+}
+.toast.visible { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏛 姿勢観察支援 ─ 法人ポータル</h1>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="corp-label" id="corpLabel"></span>
+    <button class="logout-btn" id="logoutBtn" style="display:none;" onclick="corpLogout()">ログアウト</button>
+  </div>
+</div>
+
+<!-- ログイン -->
+<div class="view active" id="loginView">
+  <div class="wrap">
+    <div class="card login-card">
+      <h2>法人ポータル ログイン</h2>
+      <div class="field">
+        <label>法人ID</label>
+        <input type="text" id="loginCorpId" placeholder="例: C001">
+      </div>
+      <div class="field">
+        <label>パスワード</label>
+        <input type="password" id="loginPassword" placeholder="パスワード">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="corpDoLogin()">ログイン</button>
+      <div class="error" id="loginError"></div>
+      <div class="hint">法人IDとパスワードは販売元（AI Care Medi）から発行されます。</div>
+    </div>
+  </div>
+</div>
+
+<!-- メイン -->
+<div class="view" id="mainView">
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab(this)">📊 概要・事業所</button>
+    <button class="tab-btn" data-tab="records" onclick="switchTab(this)">📷 記録の閲覧</button>
+    <button class="tab-btn" data-tab="billing" onclick="switchTab(this)">💰 請求書</button>
+  </div>
+
+  <div class="wrap">
+
+    <!-- 概要・事業所 -->
+    <div class="tab-page active" id="tab-overview">
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="card">
+        <h2>🏢 事業所一覧</h2>
+        <div class="cred-box" id="credBox">
+          <div style="font-weight:700;color:var(--accent);margin-bottom:6px;">✅ 新しいパスワードを発行しました</div>
+          <div>事業所ID: <code id="credId"></code>　パスワード: <code id="credPw"></code></div>
+          <div class="hint" style="color:var(--warning);">この画面を閉じると表示されません。事業所に伝えてください。</div>
+        </div>
+        <div class="table-scroll">
+          <table id="facilityTable"></table>
+        </div>
+        <div class="hint">事業所の現場スタッフがパスワードを忘れた場合は「パスワード再発行」で新しいパスワードを発行できます（旧パスワードは無効になります）。事業所の追加・停止は販売元にご依頼ください。</div>
+      </div>
+    </div>
+
+    <!-- 記録の閲覧 -->
+    <div class="tab-page" id="tab-records">
+      <div class="card">
+        <h2>📷 記録の閲覧（読み取り専用）</h2>
+        <div class="select-row">
+          <div class="field">
+            <label>事業所</label>
+            <select id="recFacility" onchange="onFacilityChange()"></select>
+          </div>
+          <div class="field">
+            <label>利用者</label>
+            <select id="recUser" onchange="loadRecords()"></select>
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <button class="btn btn-sm btn-gray" id="reportLinkBtn" onclick="openReport()" disabled>📱 この利用者の評価表を開く</button>
+        </div>
+        <div class="table-scroll">
+          <table id="recordTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 請求書 -->
+    <div class="tab-page" id="tab-billing">
+      <div class="card">
+        <h2>💰 請求書（貴社宛て）</h2>
+        <div class="table-scroll">
+          <table id="invoiceTable"></table>
+        </div>
+        <div class="hint">「請求書」ボタンから印刷・PDF保存ができます。金額や内容に関するお問い合わせは販売元まで。</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ビューア -->
+<div class="modal-overlay" id="viewerModal">
+  <div class="modal-box">
+    <h2 id="viewerTitle" style="font-size:0.95rem;margin-bottom:10px;"></h2>
+    <div class="viewer-box" id="viewerBox"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeViewer()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfdRCRfYuPQhvl0D9EHjrXolw8IPilroU-Ky9eYKCY07-m5Ciwdla5bciAIPaa49FwRw/exec';
+
+let session = null;
+try { session = JSON.parse(sessionStorage.getItem('postureCorpSession') || 'null'); } catch (e) {}
+let data = { corp: {}, facilities: [], invoices: [], billSettings: {} };
+let currentUsers = [];
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('visible'), 3000);
+}
+
+async function api(payload) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...payload, corpId: session ? session.corpId : '', token: session ? session.token : '' }),
+  });
+  const r = await res.json();
+  if (r.status !== 'ok' && r.code === 'AUTH') {
+    corpLogout();
+    showToast('再ログインが必要です');
+  }
+  return r;
+}
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('logoutBtn').style.display = (id === 'mainView') ? '' : 'none';
+  document.getElementById('corpLabel').textContent =
+    (id === 'mainView' && session) ? `${session.corpName}（${session.corpId}）` : '';
+}
+
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+}
+
+function yen(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ===== ログイン =====
+async function corpDoLogin() {
+  const corpId = document.getElementById('loginCorpId').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const err = document.getElementById('loginError');
+  err.textContent = '';
+  if (!corpId || !password) { err.textContent = '法人IDとパスワードを入力してください'; return; }
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'corpLogin', corpId, password }),
+    });
+    const r = await res.json();
+    if (r.status !== 'ok') { err.textContent = r.message || 'ログインに失敗しました'; return; }
+    session = r.session;
+    sessionStorage.setItem('postureCorpSession', JSON.stringify(session));
+    document.getElementById('loginPassword').value = '';
+    enterMain();
+  } catch (e) {
+    err.textContent = '通信エラー';
+  }
+}
+
+function corpLogout() {
+  session = null;
+  sessionStorage.removeItem('postureCorpSession');
+  showView('loginView');
+}
+
+async function enterMain() {
+  showView('mainView');
+  document.getElementById('facilityTable').innerHTML =
+    '<tr class="loading-row"><td>⏳ 読み込み中...</td></tr>';
+  const r = await api({ action: 'corpOverview' });
+  if (r.status !== 'ok') { if (r.code !== 'AUTH') showToast(r.message || 'エラー'); return; }
+  data = r;
+  renderOverview();
+  renderFacilitySelect();
+  renderInvoices();
+}
+
+// ===== 概要・事業所 =====
+function renderOverview() {
+  const active = data.facilities.filter(f => f.active).length;
+  const unpaid = data.invoices.filter(i => i.state === '発行済');
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">🏢 事業所</div>
+      <div class="stat-value">${active} <span style="font-size:0.9rem;color:var(--gray-600);">拠点</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">💰 ご契約単価（税抜/事業所）</div>
+      <div class="stat-value">${data.corp.unitPrice ? yen(data.corp.unitPrice) : '─'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">⏳ お支払い前の請求</div>
+      <div class="stat-value">${unpaid.length} <span style="font-size:0.9rem;color:var(--gray-600);">件</span></div>
+    </div>
+  `;
+
+  const table = document.getElementById('facilityTable');
+  table.innerHTML = '<tr><th>事業所ID</th><th>事業所名</th><th>状態</th><th>操作</th></tr>';
+  data.facilities.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${f.facilityId}</td><td class="col-name">${escapeHtml(f.name)}</td>` +
+      `<td class="${f.active ? 'status-active' : 'status-stopped'}">${f.active ? '有効' : '停止'}</td>`;
+    const opTd = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm btn-gray';
+    btn.textContent = 'パスワード再発行';
+    btn.onclick = async () => {
+      if (!confirm(`${f.name} のパスワードを再発行しますか？\n（現在のパスワードは使えなくなります）`)) return;
+      btn.disabled = true;
+      const r = await api({ action: 'corpResetFacilityPassword', facilityId: f.facilityId });
+      btn.disabled = false;
+      if (r.status === 'ok') {
+        document.getElementById('credId').textContent = r.facilityId;
+        document.getElementById('credPw').textContent = r.password;
+        document.getElementById('credBox').classList.add('visible');
+        showToast('パスワードを再発行しました');
+      } else if (r.code !== 'AUTH') showToast(r.message || 'エラー');
+    };
+    opTd.appendChild(btn);
+    tr.appendChild(opTd);
+    table.appendChild(tr);
+  });
+  if (data.facilities.length === 0) {
+    table.insertAdjacentHTML('beforeend',
+      '<tr class="loading-row"><td colspan="4">事業所がありません。販売元にお問い合わせください。</td></tr>');
+  }
+}
+
+// ===== 記録の閲覧 =====
+function renderFacilitySelect() {
+  const sel = document.getElementById('recFacility');
+  sel.innerHTML = '<option value="">事業所を選択...</option>';
+  data.facilities.filter(f => f.active).forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.facilityId;
+    opt.textContent = `${f.facilityId} ${f.name}`;
+    sel.appendChild(opt);
+  });
+  document.getElementById('recUser').innerHTML = '<option value="">先に事業所を選択</option>';
+  document.getElementById('recordTable').innerHTML = '';
+  document.getElementById('reportLinkBtn').disabled = true;
+}
+
+async function onFacilityChange() {
+  const facilityId = document.getElementById('recFacility').value;
+  const userSel = document.getElementById('recUser');
+  document.getElementById('recordTable').innerHTML = '';
+  document.getElementById('reportLinkBtn').disabled = true;
+  if (!facilityId) { userSel.innerHTML = '<option value="">先に事業所を選択</option>'; return; }
+
+  userSel.innerHTML = '<option value="">⏳ 読み込み中...</option>';
+  const r = await api({ action: 'corpListUsers', facilityId });
+  if (r.status !== 'ok') { if (r.code !== 'AUTH') showToast(r.message || 'エラー'); return; }
+  currentUsers = r.users;
+  userSel.innerHTML = '<option value="">利用者を選択...</option>';
+  r.users.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.name;
+    opt.textContent = u.name;
+    userSel.appendChild(opt);
+  });
+  if (r.users.length === 0) {
+    userSel.innerHTML = '<option value="">利用者がいません</option>';
+  }
+}
+
+async function loadRecords() {
+  const facilityId = document.getElementById('recFacility').value;
+  const user = document.getElementById('recUser').value;
+  const table = document.getElementById('recordTable');
+  document.getElementById('reportLinkBtn').disabled = !user;
+  if (!facilityId || !user) { table.innerHTML = ''; return; }
+
+  table.innerHTML = '<tr class="loading-row"><td>⏳ 読み込み中...</td></tr>';
+  const r = await api({ action: 'corpListRecords', facilityId, user });
+  if (r.status !== 'ok') { if (r.code !== 'AUTH') showToast(r.message || 'エラー'); return; }
+
+  table.innerHTML = '<tr><th>日時</th><th>カテゴリ</th><th>ファイル</th><th>操作</th></tr>';
+  r.records.forEach(rec => {
+    const d = new Date(rec.date);
+    const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${dateStr}</td><td>${escapeHtml(rec.category)}</td>` +
+      `<td class="col-name" style="font-size:0.8rem;">${escapeHtml(rec.name)}</td>`;
+    const opTd = document.createElement('td');
+    if (rec.mimeType.startsWith('image/') || rec.mimeType.startsWith('video/')) {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-sm btn-primary';
+      btn.textContent = '表示';
+      btn.onclick = () => viewFile(facilityId, rec);
+      opTd.appendChild(btn);
+    } else {
+      opTd.innerHTML = '<span style="color:#9ca3af;font-size:0.8rem;">データ</span>';
+    }
+    tr.appendChild(opTd);
+    table.appendChild(tr);
+  });
+  if (r.records.length === 0) {
+    table.insertAdjacentHTML('beforeend',
+      '<tr class="loading-row"><td colspan="4">この利用者の記録はまだありません。</td></tr>');
+  }
+}
+
+async function viewFile(facilityId, rec) {
+  showToast('読み込み中...');
+  const r = await api({ action: 'corpGetFileData', facilityId, fileId: rec.id });
+  if (r.status !== 'ok') { if (r.code !== 'AUTH') showToast(r.message || 'エラー'); return; }
+  const byteChars = atob(r.base64);
+  const bytes = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: r.mimeType }));
+
+  const box = document.getElementById('viewerBox');
+  box.innerHTML = '';
+  if (r.mimeType.startsWith('image/')) {
+    const img = document.createElement('img');
+    img.src = url;
+    box.appendChild(img);
+  } else {
+    const vid = document.createElement('video');
+    vid.src = url;
+    vid.controls = true;
+    vid.autoplay = true;
+    vid.loop = true;
+    vid.muted = true;
+    vid.playsInline = true;
+    box.appendChild(vid);
+  }
+  document.getElementById('viewerTitle').textContent = rec.name;
+  document.getElementById('viewerModal').classList.add('visible');
+}
+
+function closeViewer() {
+  const vid = document.getElementById('viewerBox').querySelector('video');
+  if (vid) vid.pause();
+  document.getElementById('viewerModal').classList.remove('visible');
+}
+
+function openReport() {
+  const facilityId = document.getElementById('recFacility').value;
+  const userName = document.getElementById('recUser').value;
+  const u = currentUsers.find(x => x.name === userName);
+  if (!u || !u.token) { showToast('この利用者の評価表リンクがありません'); return; }
+  window.open(`${GAS_URL}?page=report&fid=${encodeURIComponent(facilityId)}&user=${encodeURIComponent(userName)}&key=${u.token}`, '_blank');
+}
+
+// ===== 請求書 =====
+function renderInvoices() {
+  const table = document.getElementById('invoiceTable');
+  table.innerHTML = '<tr><th>対象月</th><th>事業所数</th><th>税抜額</th><th>消費税</th><th>税込額</th><th>状態</th><th>支払期限</th><th>操作</th></tr>';
+  const list = [...data.invoices].sort((a, b) => b.month.localeCompare(a.month));
+  list.forEach(inv => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${inv.month}</td><td class="num">${inv.count}</td>` +
+      `<td class="num">${yen(inv.net)}</td><td class="num">${yen(inv.tax)}</td>` +
+      `<td class="num" style="font-weight:700;">${yen(inv.total)}</td>` +
+      `<td class="${inv.state === '入金済' ? 'state-paid' : 'state-issued'}">${inv.state === '入金済' ? '入金済' : '未払い'}</td>` +
+      `<td>${inv.dueDate}</td>`;
+    const opTd = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm btn-primary';
+    btn.textContent = '請求書';
+    btn.onclick = () => openInvoicePage(inv);
+    opTd.appendChild(btn);
+    tr.appendChild(opTd);
+    table.appendChild(tr);
+  });
+  if (list.length === 0) {
+    table.insertAdjacentHTML('beforeend',
+      '<tr class="loading-row"><td colspan="8">請求書はまだありません。</td></tr>');
+  }
+}
+
+function openInvoicePage(inv) {
+  const corp = data.corp || {};
+  const s = data.billSettings || {};
+  const monthDisp = inv.month.replace('-', '年') + '月';
+  const e = escapeHtml;
+  const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+<title>請求書 ${e(inv.month)} ${e(session.corpName)}</title>
+<style>
+  body { font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', sans-serif; color: #1f2937; margin: 0; padding: 40px; }
+  .sheet { max-width: 760px; margin: 0 auto; }
+  h1 { text-align: center; font-size: 26px; letter-spacing: 16px; border-bottom: 3px double #1f2937; padding-bottom: 10px; }
+  .row { display: flex; justify-content: space-between; margin-top: 24px; gap: 24px; }
+  .to { font-size: 15px; flex: 1; }
+  .to .corp-name { font-size: 19px; font-weight: 700; border-bottom: 1px solid #1f2937; padding-bottom: 4px; margin-bottom: 6px; }
+  .from { font-size: 12px; line-height: 1.7; }
+  .from .company { font-size: 15px; font-weight: 700; }
+  .meta { font-size: 12px; text-align: right; margin-top: 8px; color: #4b5563; }
+  .total-box { margin-top: 24px; display: flex; align-items: center; gap: 16px; }
+  .total-box .label { font-size: 14px; font-weight: 700; }
+  .total-box .amount { font-size: 26px; font-weight: 800; border-bottom: 2px solid #1f2937; padding: 0 24px 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; font-size: 13px; }
+  th, td { border: 1px solid #9ca3af; padding: 9px 12px; }
+  th { background: #f3f4f6; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .totals td { font-weight: 700; }
+  .bank { margin-top: 24px; font-size: 13px; border: 1px solid #9ca3af; padding: 12px 16px; }
+  .bank .bank-title { font-weight: 700; margin-bottom: 4px; }
+  .note { margin-top: 16px; font-size: 12px; color: #4b5563; white-space: pre-wrap; }
+  .print-btn { position: fixed; top: 16px; right: 16px; padding: 10px 22px; background: #7c3aed; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  @media print { .print-btn { display: none; } body { padding: 0; } }
+</style></head><body>
+<button class="print-btn" onclick="window.print()">🖨 印刷 / PDF保存</button>
+<div class="sheet">
+  <h1>請求書</h1>
+  <div class="meta">請求書番号: ${e(inv.invoiceId)}　発行日: ${e(inv.issuedAt)}</div>
+  <div class="row">
+    <div class="to">
+      <div class="corp-name">${e(session.corpName)} 御中</div>
+      ${corp.address ? e(corp.address) + '<br>' : ''}
+      ${corp.contact ? 'ご担当: ' + e(corp.contact) + ' 様' : ''}
+    </div>
+    <div class="from">
+      <div class="company">${e(s.bill_company || 'AI Care Medi')}</div>
+      ${s.bill_address ? e(s.bill_address) + '<br>' : ''}
+      ${s.bill_tel ? 'TEL: ' + e(s.bill_tel) + '<br>' : ''}
+      ${s.bill_invoiceNo ? '登録番号: ' + e(s.bill_invoiceNo) : ''}
+    </div>
+  </div>
+  <div class="total-box">
+    <div class="label">ご請求金額</div>
+    <div class="amount">¥${Number(inv.total).toLocaleString('ja-JP')} <span style="font-size:13px;">(税込)</span></div>
+    <div style="font-size:12px;color:#4b5563;">お支払期限: ${e(inv.dueDate)}</div>
+  </div>
+  <table>
+    <tr><th>品目</th><th style="width:70px;">数量</th><th style="width:110px;">単価（税抜）</th><th style="width:120px;">金額（税抜）</th></tr>
+    <tr>
+      <td>姿勢観察支援アプリ 利用料（${e(monthDisp)}分）</td>
+      <td class="num">${inv.count}</td>
+      <td class="num">¥${Number(inv.unitPrice).toLocaleString('ja-JP')}</td>
+      <td class="num">¥${Number(inv.net).toLocaleString('ja-JP')}</td>
+    </tr>
+    <tr class="totals"><td colspan="3" style="text-align:right;">小計（税抜）</td><td class="num">¥${Number(inv.net).toLocaleString('ja-JP')}</td></tr>
+    <tr class="totals"><td colspan="3" style="text-align:right;">消費税（10%）</td><td class="num">¥${Number(inv.tax).toLocaleString('ja-JP')}</td></tr>
+    <tr class="totals"><td colspan="3" style="text-align:right;">合計（税込）</td><td class="num">¥${Number(inv.total).toLocaleString('ja-JP')}</td></tr>
+  </table>
+  ${s.bill_bank ? '<div class="bank"><div class="bank-title">お振込先</div>' + e(s.bill_bank).replace(/\n/g, '<br>') + '</div>' : ''}
+  ${s.bill_note ? '<div class="note">' + e(s.bill_note) + '</div>' : ''}
+</div>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { showToast('ポップアップがブロックされました。許可してください'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
+// ===== INIT =====
+document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') corpDoLogin(); });
+
+if (session) {
+  enterMain();
+}
+</script>
+</body>
+</html>
