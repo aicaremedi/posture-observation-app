@@ -187,6 +187,48 @@ button:disabled { opacity: 0.5; cursor: default; }
 .form-grid .full { grid-column: 1 / -1; }
 @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
 
+/* ===== 法人カード（統合ビュー） ===== */
+.org-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.org-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: var(--gray-100);
+  border-bottom: 1px solid var(--gray-200);
+}
+.org-head .org-name { font-size: 1.02rem; font-weight: 700; }
+.org-head .org-id { font-size: 0.78rem; color: var(--gray-600); }
+.org-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.badge-price { background: var(--primary-light); color: var(--primary); }
+.badge-scope { background: var(--warning-light); color: var(--warning); }
+.badge-scope.corp { background: #ede9fe; color: #7c3aed; }
+.org-head .org-ops { margin-left: auto; display: flex; gap: 8px; }
+.org-body { padding: 14px 18px; }
+.org-contact { font-size: 0.8rem; color: var(--gray-600); margin-bottom: 10px; }
+.org-add-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+.org-add-row input {
+  flex: 1;
+  max-width: 320px;
+  padding: 9px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
 .view { display: none; }
 .view.active { display: block; }
 .tab-page { display: none; }
@@ -250,8 +292,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 <div class="view" id="mainView">
   <div class="tab-nav">
     <button class="tab-btn active" data-tab="dashboard" onclick="switchTab(this)">📊 ダッシュボード</button>
-    <button class="tab-btn" data-tab="corps" onclick="switchTab(this)">🏛 法人管理</button>
-    <button class="tab-btn" data-tab="facilities" onclick="switchTab(this)">🏢 事業所管理</button>
+    <button class="tab-btn" data-tab="corps" onclick="switchTab(this)">🏢 法人・事業所管理</button>
     <button class="tab-btn" data-tab="billing" onclick="switchTab(this)">💰 請求管理</button>
     <button class="tab-btn" data-tab="settings" onclick="switchTab(this)">⚙️ 設定</button>
   </div>
@@ -271,54 +312,25 @@ button:disabled { opacity: 0.5; cursor: default; }
       </div>
     </div>
 
-    <!-- 法人管理 -->
+    <!-- 法人・事業所管理（統合ビュー） -->
     <div class="tab-page" id="tab-corps">
       <div class="card">
-        <h2>🏛 法人アカウント</h2>
+        <h2>🏛 新しい法人を登録</h2>
         <div class="add-row">
           <div class="field">
-            <label>新しい法人名</label>
+            <label>法人名</label>
             <input type="text" id="newCorpName" placeholder="例: 株式会社○○ケア">
           </div>
           <button class="btn btn-green" onclick="addCorp()">法人を追加</button>
         </div>
-        <div class="table-scroll">
-          <table id="corpTable"></table>
-        </div>
-        <div class="hint">「編集」から担当者・連絡先・1事業所あたりの月額単価（税抜）を登録すると、請求管理で請求書を自動生成できます。</div>
+        <div class="hint">法人を登録し、その配下に事業所を発行します（発行はこのシステム管理画面のみ）。課金は「有効な事業所の数 × 法人ごとの単価」です。</div>
       </div>
-    </div>
-
-    <!-- 事業所管理 -->
-    <div class="tab-page" id="tab-facilities">
-      <div class="card">
-        <h2>🏢 事業所アカウント</h2>
-        <div class="add-row">
-          <div class="field">
-            <label>所属法人</label>
-            <select id="newFacilityCorp"></select>
-          </div>
-          <div class="field">
-            <label>事業所名</label>
-            <input type="text" id="newFacilityName" placeholder="例: △△デイサービス">
-          </div>
-          <button class="btn btn-green" onclick="addFacility()">事業所を発行</button>
-        </div>
-        <div class="cred-box" id="credBox">
-          <div class="cred-title">✅ 事業所アカウントを発行しました</div>
-          <div>事業所ID: <code id="credId"></code>　パスワード: <code id="credPw"></code></div>
-          <div class="warn">このID・パスワードを事業所に渡してください（下の一覧の「表示」からいつでも確認できます）。</div>
-        </div>
-        <div class="add-row" style="margin-top:14px;">
-          <div class="field" style="max-width:320px;">
-            <label>法人で絞り込み</label>
-            <select id="facilityFilter" onchange="renderFacilities()"></select>
-          </div>
-        </div>
-        <div class="table-scroll">
-          <table id="facilityTable"></table>
-        </div>
+      <div class="cred-box" id="credBox">
+        <div class="cred-title">✅ 事業所アカウントを発行しました</div>
+        <div>事業所ID: <code id="credId"></code>　パスワード: <code id="credPw"></code></div>
+        <div class="warn">このID・パスワードを事業所に渡してください（一覧の「表示」からいつでも確認できます）。</div>
       </div>
+      <div id="orgList"></div>
     </div>
 
     <!-- 請求管理 -->
@@ -413,6 +425,16 @@ button:disabled { opacity: 0.5; cursor: default; }
       <div class="field">
         <label>月額単価・税抜（円/事業所）</label>
         <input type="number" id="edit_unitPrice" min="0" step="100">
+      </div>
+      <div class="field">
+        <label>データ保存の単位</label>
+        <select id="edit_storageScope">
+          <option value="事業所">事業所ごとに分ける</option>
+          <option value="法人">法人でまとめて共有</option>
+        </select>
+      </div>
+      <div class="field full">
+        <div class="hint" style="margin-top:-6px;">「法人でまとめて共有」にすると、この法人の全事業所が同じ利用者リスト・同じ記録フォルダを共有します（系列施設で利用者を共有する場合向け）。切替は今後の保存分から反映され、過去のデータは元のフォルダに残ります。</div>
       </div>
       <div class="field full">
         <label>備考</label>
@@ -540,15 +562,12 @@ async function enterMain() {
 }
 
 // ===== データ取得（1回の通信で全タブ分） =====
-const CORP_HEADER = '<tr><th>法人ID</th><th>法人名</th><th>担当者</th><th>連絡先</th><th>単価(税抜)</th><th>状態</th><th>操作</th></tr>';
-const FACILITY_HEADER = '<tr><th>事業所ID</th><th>事業所名</th><th>法人</th><th>パスワード</th><th>状態</th><th>操作</th></tr>';
+const FACILITY_HEADER = '<tr><th>事業所ID</th><th>事業所名</th><th>パスワード</th><th>状態</th><th>操作</th></tr>';
 const INVOICE_HEADER = '<tr><th>対象月</th><th>法人</th><th>事業所数</th><th>単価</th><th>税抜額</th><th>消費税</th><th>税込額</th><th>状態</th><th>支払期限</th><th>操作</th></tr>';
 
 function setLoadingRows() {
-  document.getElementById('corpTable').innerHTML =
-    CORP_HEADER + '<tr class="loading-row"><td colspan="7">⏳ 読み込み中...</td></tr>';
-  document.getElementById('facilityTable').innerHTML =
-    FACILITY_HEADER + '<tr class="loading-row"><td colspan="6">⏳ 読み込み中...</td></tr>';
+  document.getElementById('orgList').innerHTML =
+    '<div class="card loading-row" style="text-align:center;color:#9ca3af;">⏳ 読み込み中...</div>';
   document.getElementById('invoiceTable').innerHTML =
     INVOICE_HEADER + '<tr class="loading-row"><td colspan="10">⏳ 読み込み中...</td></tr>';
   document.getElementById('statGrid').innerHTML =
@@ -562,8 +581,7 @@ async function refreshAll() {
     if (r.status !== 'ok') { handleApiError(r); return; }
     data = r;
     renderDashboard();
-    renderCorps();
-    renderFacilities();
+    renderOrgs();
     renderInvoices();
     fillSettings();
   } catch (e) {
@@ -620,21 +638,43 @@ function renderDashboard() {
   }
 }
 
-// ===== 法人管理 =====
-function renderCorps() {
-  const table = document.getElementById('corpTable');
-  table.innerHTML = CORP_HEADER;
-  data.corps.forEach(c => {
-    const tr = document.createElement('tr');
-    const contactInfo = [c.email, c.tel].filter(Boolean).join(' / ');
-    tr.innerHTML = `<td>${c.corpId}</td><td class="col-name">${escapeHtml(c.name)}</td>` +
-      `<td>${escapeHtml(c.contact || '─')}</td><td class="col-name">${escapeHtml(contactInfo || '─')}</td>` +
-      `<td class="num">${c.unitPrice ? yen(c.unitPrice) : '<span style="color:#9ca3af;">未設定</span>'}</td>` +
-      `<td class="${c.active ? 'status-active' : 'status-stopped'}">${c.active ? '有効' : '停止'}</td>`;
+// ===== 法人・事業所管理（統合ビュー） =====
+function renderOrgs() {
+  const list = document.getElementById('orgList');
+  list.innerHTML = '';
 
-    const opTd = document.createElement('td');
+  if (data.corps.length === 0) {
+    list.innerHTML = '<div class="card" style="text-align:center;color:#9ca3af;">まだ法人がありません。上の欄から追加してください。</div>';
+    return;
+  }
+
+  data.corps.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'org-card';
+
+    // ── 法人ヘッダー ──
+    const head = document.createElement('div');
+    head.className = 'org-head';
+
+    const nameBox = document.createElement('div');
+    nameBox.innerHTML = `<span class="org-name">🏛 ${escapeHtml(c.name)}</span> ` +
+      `<span class="org-id">${c.corpId}</span>`;
+
+    const priceBadge = document.createElement('span');
+    priceBadge.className = 'org-badge badge-price';
+    priceBadge.textContent = c.unitPrice ? `単価 ${yen(c.unitPrice)}/事業所` : '単価 未設定';
+
+    const scopeBadge = document.createElement('span');
+    scopeBadge.className = 'org-badge badge-scope' + (c.storageScope === '法人' ? ' corp' : '');
+    scopeBadge.textContent = c.storageScope === '法人' ? '📁 法人でデータ共有' : '📁 事業所ごとに分割';
+
+    const statusBadge = document.createElement('span');
+    statusBadge.className = c.active ? 'status-active' : 'status-stopped';
+    statusBadge.style.fontSize = '0.82rem';
+    statusBadge.textContent = c.active ? '有効' : '停止';
+
     const ops = document.createElement('div');
-    ops.className = 'ops';
+    ops.className = 'org-ops';
 
     const editBtn = document.createElement('button');
     editBtn.className = 'btn btn-sm btn-gray';
@@ -654,95 +694,59 @@ function renderCorps() {
 
     ops.appendChild(editBtn);
     ops.appendChild(toggleBtn);
-    opTd.appendChild(ops);
-    tr.appendChild(opTd);
-    table.appendChild(tr);
+    head.appendChild(nameBox);
+    head.appendChild(priceBadge);
+    head.appendChild(scopeBadge);
+    head.appendChild(statusBadge);
+    head.appendChild(ops);
+    card.appendChild(head);
+
+    // ── 法人ボディ（連絡先 + 事業所一覧 + 追加） ──
+    const body = document.createElement('div');
+    body.className = 'org-body';
+
+    const contactInfo = [c.contact, c.email, c.tel].filter(Boolean).join(' ／ ');
+    if (contactInfo) {
+      const contact = document.createElement('div');
+      contact.className = 'org-contact';
+      contact.textContent = '👤 ' + contactInfo;
+      body.appendChild(contact);
+    }
+
+    const scroll = document.createElement('div');
+    scroll.className = 'table-scroll';
+    scroll.appendChild(buildFacilityTable(c));
+    body.appendChild(scroll);
+
+    // 事業所の追加（この法人に紐づけて発行）
+    const addRow = document.createElement('div');
+    addRow.className = 'org-add-row';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '新しい事業所名（例: △△デイサービス）';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-sm btn-green';
+    addBtn.textContent = '＋ 事業所を発行';
+    addBtn.onclick = () => addFacility(c.corpId, input, addBtn);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') addFacility(c.corpId, input, addBtn); });
+    if (!c.active) { input.disabled = true; addBtn.disabled = true; }
+    addRow.appendChild(input);
+    addRow.appendChild(addBtn);
+    body.appendChild(addRow);
+
+    card.appendChild(body);
+    list.appendChild(card);
   });
-  if (data.corps.length === 0) {
-    table.insertAdjacentHTML('beforeend',
-      '<tr class="loading-row"><td colspan="7">まだ法人がありません。上の欄から追加してください。</td></tr>');
-  }
-
-  // 事業所タブの法人セレクトも更新
-  const select = document.getElementById('newFacilityCorp');
-  select.innerHTML = '';
-  data.corps.filter(c => c.active).forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.corpId;
-    opt.textContent = `${c.corpId} ${c.name}`;
-    select.appendChild(opt);
-  });
-  const filter = document.getElementById('facilityFilter');
-  const current = filter.value;
-  filter.innerHTML = '<option value="">すべての法人</option>';
-  data.corps.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.corpId;
-    opt.textContent = `${c.corpId} ${c.name}`;
-    filter.appendChild(opt);
-  });
-  filter.value = current;
 }
 
-async function addCorp() {
-  const name = document.getElementById('newCorpName').value.trim();
-  if (!name) { showToast('法人名を入力してください'); return; }
-  showToast('追加中...');
-  const r = await api({ action: 'adminAddCorp', name });
-  if (r.status === 'ok') {
-    document.getElementById('newCorpName').value = '';
-    showToast(`法人「${name}」を追加しました（${r.corp.corpId}）`);
-    refreshAll();
-  } else handleApiError(r);
-}
-
-function openCorpModal(c) {
-  editingCorpId = c.corpId;
-  document.getElementById('corpModalName').textContent = c.name;
-  document.getElementById('edit_contact').value = c.contact || '';
-  document.getElementById('edit_email').value = c.email || '';
-  document.getElementById('edit_tel').value = c.tel || '';
-  document.getElementById('edit_address').value = c.address || '';
-  document.getElementById('edit_unitPrice').value = c.unitPrice || '';
-  document.getElementById('edit_note').value = c.note || '';
-  document.getElementById('corpModal').classList.add('visible');
-}
-
-function closeCorpModal() {
-  document.getElementById('corpModal').classList.remove('visible');
-  editingCorpId = null;
-}
-
-async function saveCorpModal() {
-  if (!editingCorpId) return;
-  showToast('保存中...');
-  const r = await api({
-    action: 'adminUpdateCorp',
-    corpId: editingCorpId,
-    contact: document.getElementById('edit_contact').value.trim(),
-    email: document.getElementById('edit_email').value.trim(),
-    tel: document.getElementById('edit_tel').value.trim(),
-    address: document.getElementById('edit_address').value.trim(),
-    unitPrice: Number(document.getElementById('edit_unitPrice').value || 0),
-    note: document.getElementById('edit_note').value.trim(),
-  });
-  if (r.status === 'ok') {
-    closeCorpModal();
-    showToast('法人情報を保存しました ✓');
-    refreshAll();
-  } else handleApiError(r);
-}
-
-// ===== 事業所管理 =====
-function renderFacilities() {
-  const table = document.getElementById('facilityTable');
+function buildFacilityTable(corp) {
+  const table = document.createElement('table');
   table.innerHTML = FACILITY_HEADER;
-  const filter = document.getElementById('facilityFilter').value;
-  const list = data.facilities.filter(f => !filter || f.corpId === filter);
+  const list = data.facilities.filter(f => f.corpId === corp.corpId);
 
   list.forEach(f => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${f.facilityId}</td><td class="col-name">${escapeHtml(f.name)}</td><td class="col-name">${escapeHtml(f.corpName)}</td>`;
+    tr.innerHTML = `<td>${f.facilityId}</td><td class="col-name">${escapeHtml(f.name)}</td>`;
 
     const pwTd = document.createElement('td');
     if (f.password) {
@@ -808,24 +812,80 @@ function renderFacilities() {
     tr.appendChild(opTd);
     table.appendChild(tr);
   });
+
   if (list.length === 0) {
     table.insertAdjacentHTML('beforeend',
-      '<tr class="loading-row"><td colspan="6">該当する事業所がありません。</td></tr>');
+      '<tr class="loading-row"><td colspan="5">まだ事業所がありません。下の欄から発行してください。</td></tr>');
   }
+  return table;
 }
 
-async function addFacility() {
-  const corpId = document.getElementById('newFacilityCorp').value;
-  const name = document.getElementById('newFacilityName').value.trim();
-  if (!corpId) { showToast('先に法人を追加してください'); return; }
+async function addCorp() {
+  const name = document.getElementById('newCorpName').value.trim();
+  if (!name) { showToast('法人名を入力してください'); return; }
+  showToast('追加中...');
+  const r = await api({ action: 'adminAddCorp', name });
+  if (r.status === 'ok') {
+    document.getElementById('newCorpName').value = '';
+    showToast(`法人「${name}」を追加しました（${r.corp.corpId}）`);
+    refreshAll();
+  } else handleApiError(r);
+}
+
+function openCorpModal(c) {
+  editingCorpId = c.corpId;
+  document.getElementById('corpModalName').textContent = c.name;
+  document.getElementById('edit_contact').value = c.contact || '';
+  document.getElementById('edit_email').value = c.email || '';
+  document.getElementById('edit_tel').value = c.tel || '';
+  document.getElementById('edit_address').value = c.address || '';
+  document.getElementById('edit_unitPrice').value = c.unitPrice || '';
+  document.getElementById('edit_storageScope').value = c.storageScope === '法人' ? '法人' : '事業所';
+  document.getElementById('edit_note').value = c.note || '';
+  document.getElementById('corpModal').classList.add('visible');
+}
+
+function closeCorpModal() {
+  document.getElementById('corpModal').classList.remove('visible');
+  editingCorpId = null;
+}
+
+async function saveCorpModal() {
+  if (!editingCorpId) return;
+  showToast('保存中...');
+  const r = await api({
+    action: 'adminUpdateCorp',
+    corpId: editingCorpId,
+    contact: document.getElementById('edit_contact').value.trim(),
+    email: document.getElementById('edit_email').value.trim(),
+    tel: document.getElementById('edit_tel').value.trim(),
+    address: document.getElementById('edit_address').value.trim(),
+    unitPrice: Number(document.getElementById('edit_unitPrice').value || 0),
+    storageScope: document.getElementById('edit_storageScope').value,
+    note: document.getElementById('edit_note').value.trim(),
+  });
+  if (r.status === 'ok') {
+    closeCorpModal();
+    showToast('法人情報を保存しました ✓');
+    refreshAll();
+  } else handleApiError(r);
+}
+
+// ===== 事業所の発行（法人カード内から） =====
+async function addFacility(corpId, inputEl, btnEl) {
+  const name = inputEl.value.trim();
   if (!name) { showToast('事業所名を入力してください'); return; }
+  btnEl.disabled = true;
   showToast('発行中...');
   const r = await api({ action: 'adminAddFacility', corpId, name });
   if (r.status === 'ok') {
-    document.getElementById('newFacilityName').value = '';
     showCred(r.facility.facilityId, r.facility.password);
+    showToast(`事業所「${name}」を発行しました ✓`);
     refreshAll();
-  } else handleApiError(r);
+  } else {
+    btnEl.disabled = false;
+    handleApiError(r);
+  }
 }
 
 function showCred(id, pw) {

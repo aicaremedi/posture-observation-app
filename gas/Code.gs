@@ -160,6 +160,10 @@ function ensureExtendedStructure(ss) {
       .setValues([['担当者', 'メール', '電話', '住所', '単価税抜', '備考']])
       .setFontWeight('bold');
   }
+  // 保存単位列（'事業所' = 事業所ごとにフォルダ分割 / '法人' = 法人でまとめて共有）
+  if (corpSheet && String(corpSheet.getRange(1, 11).getValue()) !== '保存単位') {
+    corpSheet.getRange(1, 11).setValue('保存単位').setFontWeight('bold');
+  }
   ensureSheet(ss, '請求',
     ['請求ID', '法人ID', '対象月', '事業所数', '単価税抜', '税抜額', '消費税', '税込額', '状態', '発行日', '支払期限']);
 }
@@ -282,7 +286,8 @@ function adminListCorps(p) {
         tel: String(r[6] || ''),
         address: String(r[7] || ''),
         unitPrice: Number(r[8] || 0),
-        note: String(r[9] || '')
+        note: String(r[9] || ''),
+        storageScope: String(r[10] || '事業所')
       };
     })
   };
@@ -297,6 +302,7 @@ function adminUpdateCorp(p) {
         String(p.contact || ''), String(p.email || ''), String(p.tel || ''),
         String(p.address || ''), Number(p.unitPrice || 0), String(p.note || '')
       ]]);
+      sheet.getRange(i + 2, 11).setValue(p.storageScope === '法人' ? '法人' : '事業所');
       invalidateDb();
       return { status: 'ok' };
     }
@@ -560,7 +566,9 @@ function withFacility(p, fn) {
   }
   const corp = findCorp(String(row[2]));
   const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), corp ? String(corp[1]) : '不明法人');
-  const facilityFolder = getOrCreateFolderIn(corpFolder, String(row[1]));
+  // 保存単位: '法人' なら法人フォルダを共有（同一法人の全事業所で利用者・記録を共有）
+  const scope = corp ? String(corp[10] || '事業所') : '事業所';
+  const facilityFolder = (scope === '法人') ? corpFolder : getOrCreateFolderIn(corpFolder, String(row[1]));
   return fn(p, { folder: facilityFolder, facilityId: String(row[0]), facilityName: String(row[1]) });
 }
 
@@ -731,7 +739,8 @@ function renderReport(fid, user, key) {
   if (!row || String(row[5]) !== '有効') return invalid;
   const corp = findCorp(String(row[2]));
   const corpFolder = getOrCreateFolderIn(getOrCreateRootFolder(), corp ? String(corp[1]) : '不明法人');
-  const facilityFolder = getOrCreateFolderIn(corpFolder, String(row[1]));
+  const scope = corp ? String(corp[10] || '事業所') : '事業所';
+  const facilityFolder = (scope === '法人') ? corpFolder : getOrCreateFolderIn(corpFolder, String(row[1]));
 
   // 利用者トークン検証
   var valid = false;
